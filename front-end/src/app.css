@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@theme { 
+    --color-aaon-blue: #043B73;
+    --color-aaon-blue-light: #1c5690;
+    --color-light-background: #EDEDED;
+    --color-card-background: #FBFBFB;
+    --color-dark-text: #272931;
+    --color-light-text: #8E8E8E;
+    --color-navbar-text: #FBFBFB;
+    --color-input-background: #EDEDED;
+    --color-input-border: #E1E1E1;
+}
