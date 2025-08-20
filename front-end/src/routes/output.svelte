@@ -133,6 +133,93 @@
         a.click();
         document.body.removeChild(a);
     }
+
+    // API ---
+
+
+    async function save_serial_numbers() {
+        let message = "";
+        if (!serialFormValue.match) {
+            return toast.error("Serial numbers do not match", {
+                description: "Please ensure both serial numbers are entered correctly.",
+                duration: 2000,
+            });
+        }
+
+        try {
+            const bodyText = `${serialFormValue.serial_number}\n${serialFormValue.second_serial_number}`;
+            const response = await fetch('/api/inputs/serial-numbers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: bodyText
+            });
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
+            const data = await response.json();
+            console.log('Success:', data);
+            message = data.message || "Serial numbers saved successfully.";
+            toast.success(message, {
+                description: message,
+                duration: 1500,
+            });
+        } catch (error) {
+            console.error('Error:', error);
+            message = "Failed to save serial number";
+            toast.error(message, {
+                description: message,
+                duration: 2000,
+            });
+        }
+    }
+
+    async function save_input_file() {
+        if (!jsonFileValue.file) {
+            return toast.error("No file selected", {
+                description: "Please upload a JSON file before proceeding.",
+                duration: 2000,
+            });
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('file', jsonFileValue.file);
+
+            const response = await fetch('/api/inputs/json', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('File saved successfully:', data);
+            toast.success('File uploaded successfully', {
+                description: data.message || "Your JSON file has been uploaded.",
+                duration: 1500,
+            });
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            toast.error('File upload failed', {
+                description: "An error occurred while uploading the file.",
+                duration: 2000,
+            });
+        }
+        
+    }
+
+    // Button functionality
+    // This function combines the download preparation and saving serial numbers
+    function prepareDownloadAndSave() {
+        prepareDownload();
+        save_serial_numbers();
+        save_input_file();
+    }
+
 </script>
 
 <main class="p-4 sm:p-5 w-full bg-card-background rounded-2xl shadow-lg">
@@ -151,7 +238,7 @@
                 </div>
             {:else}
                 <button 
-                    onclick={prepareDownload}
+                    onclick={prepareDownloadAndSave}
                     disabled={!canGenerate} 
                     class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate ? 'bg-gray-300 cursor-not-allowed' : 'bg-aaon-blue hover:bg-aaon-blue-light'} text-white rounded-md transition-colors duration-200"
                 >

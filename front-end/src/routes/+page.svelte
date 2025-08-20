@@ -1,12 +1,11 @@
-<script>
+<script lang="ts">
     import SerialNumber from './serial_number.svelte';
-    import JsonCard from './json_file.svelte';
-
-    // import Build from './build_button.svelte';
+    import JsonCard from './json_file.svelte';   
     import NavBar from './navbar.svelte';
     import Output from './output.svelte';
 
     let { children } = $props();
+
 </script>
 
 

@@ -25,6 +25,7 @@
     });
 
     let matching_image = $derived(serial_form.match ? valid : invalid);
+
 </script>
 
 
