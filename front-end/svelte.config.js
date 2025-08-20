@@ -13,9 +13,13 @@ const config = {
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter(),
 		alias: {
-			"@/*": "./path/to/lib/*",
+			"$lib": "./src/lib",
 		},
 	}
 };
+
+// Include node_modules Svelte components
+const nodeModules = ['svelte-sonner'];
+config.package = { files: () => true };
 
 export default config;

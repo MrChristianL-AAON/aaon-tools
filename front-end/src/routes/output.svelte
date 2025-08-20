@@ -1,7 +1,8 @@
 <script lang="ts">
     import { serialFormStore, jsonFileStore } from '$lib/stores';
     import Progress from '$lib/components/ui/progress/progress.svelte';
-    import DownloadIcon from '$lib/assets/download_arrow.svg';
+
+    import { toast } from 'svelte-sonner';
 
     interface OutputFile {
         name: string;
@@ -52,6 +53,9 @@
     
     // Function to simulate file preparation
     async function prepareDownload() {
+
+        let whoops = true;
+
         if (!canGenerate || isPreparing) return;
         
         try {
@@ -64,6 +68,11 @@
                 await new Promise(resolve => setTimeout(resolve, 300));
                 progress = i * 10;
             }
+
+            toast.success('File Prepared', {
+                description: 'Your encrypted command package is ready for download.',
+                duration: 1200,
+            });
             
             // Create a mock file for download
             const serialNumber = serialFormValue.serial_number;
@@ -84,9 +93,14 @@
                 isReady: true
             };
             
+
         } catch (error) {
             errorMessage = "An error occurred while preparing your file. Please try again.";
             console.error("Error generating file:", error);
+            toast.error('File Preparation Error', {
+                description: errorMessage,
+                duration: 3000,
+            });
         } finally {
             isPreparing = false;
         }
@@ -101,6 +115,10 @@
         isPreparing = false;
         progress = 0;
         errorMessage = "";
+        jsonFileValue.file = null; // Reset the JSON file state
+        serialFormValue.serial_number = "";
+        serialFormValue.second_serial_number = "";
+        serialFormValue.match = false;
     }
     
     // Function to trigger download
