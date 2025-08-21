@@ -3,6 +3,7 @@
     import Progress from '$lib/components/ui/progress/progress.svelte';
 
     import { toast } from 'svelte-sonner';
+    import { now } from '@internationalized/date';
 
     interface OutputFile {
         name: string;
@@ -51,59 +52,70 @@
     // Derived value to check if we can generate an output
     let canGenerate = $derived(serialFormValue?.match === true && jsonFileValue?.file !== null);
     
-    // Function to simulate file preparation
+    // Function to prepare & fetch file from backend
     async function prepareDownload() {
-
-        let whoops = true;
-
         if (!canGenerate || isPreparing) return;
-        
+
         try {
             isPreparing = true;
             errorMessage = "";
             progress = 0;
-            
-            // Simulate backend processing
+
+            // Show progress (optional fake loop for UI feedback)
             for (let i = 0; i <= 10; i++) {
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 150));
                 progress = i * 10;
             }
 
-            toast.success('File Prepared', {
-                description: 'Your encrypted command package is ready for download.',
-                duration: 1200,
-            });
-            
-            // Create a mock file for download
-            const serialNumber = serialFormValue.serial_number;
-            const mockFileName = `commands_${serialNumber}_${new Date().getTime()}.bin`;
-            
-            // Create a simple blob with text content
-            // In your real implementation, this would be your actual file data
-            const fileContent = `This is a simulated encrypted commands file for serial number: ${serialNumber}`;
-            const blob = new Blob([fileContent], { type: 'application/octet-stream' });
-            
-            // Create object URL for download
+            // 1. Ask backend which files exist
+            const date = new Date();
+            const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, '');
+            console.log("Fetching files for date:", yyyymmdd);
+            const filename = `Stratus_${yyyymmdd}.command`;
+
+            // 2. Fetch the file
+            const fileRes = await fetch(`http://localhost:8000/command/${filename}`);
+            if (!fileRes.ok) {
+                throw new Error(`Failed to fetch file: ${filename}`);
+            }
+
+            const blob = await fileRes.blob();
             const url = window.URL.createObjectURL(blob);
-            
-            // Update our output file state
+
+            // 3. Save state for download button
             output_file = {
-                name: mockFileName,
+                name: filename,
                 url: url,
                 isReady: true
             };
-            
+
+            toast.success("File Prepared", {
+                description: `Your encrypted command package (${filename}) is ready.`,
+                duration: 2000,
+            });
 
         } catch (error) {
             errorMessage = "An error occurred while preparing your file. Please try again.";
-            console.error("Error generating file:", error);
-            toast.error('File Preparation Error', {
+            console.error("Error fetching file:", error);
+            toast.error("File Preparation Error", {
                 description: errorMessage,
                 duration: 3000,
             });
         } finally {
             isPreparing = false;
         }
+    }
+
+    // Function to trigger download
+    function downloadFile() {
+        if (!output_file.isReady || !output_file.url) return;
+
+        const a = document.createElement("a");
+        a.href = output_file.url;
+        a.download = output_file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
     function resetOutput() {
@@ -119,23 +131,12 @@
         serialFormValue.serial_number = "";
         serialFormValue.second_serial_number = "";
         serialFormValue.match = false;
+        // Reset the file input element
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        if (fileInput) fileInput.value = ''; // Clear the file input
     }
     
-    // Function to trigger download
-    function downloadFile() {
-        if (!output_file.isReady || !output_file.url) return;
-        
-        // Create an anchor element and trigger download
-        const a = document.createElement('a');
-        a.href = output_file.url;
-        a.download = output_file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }
-
     // API ---
-
 
     async function save_serial_numbers() {
         let message = "";
@@ -212,12 +213,69 @@
         
     }
 
-    // Button functionality
+    async function run_pipeline() {
+        if (!canGenerate) {
+            return toast.error("Cannot run pipeline", {
+                description: "Please ensure all inputs are valid before running the pipeline.",
+                duration: 2000,
+            });
+        }
+
+        try {
+            const res = await fetch("/api/pipeline/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || data.success === false) {
+                return toast.error("Pipeline Error", {
+                    description: data.stderr || data.message || "An error occurred while starting the pipeline.",
+                    duration: 4000,
+                });
+            }
+
+            // Print everything to console for now
+            console.log("Pipeline Success:", data);
+
+            toast.success("Pipeline started", {
+                description: data.message || "Your command package is being processed.",
+                duration: 1500,
+            });
+
+        } catch (err) {
+            console.error("Pipeline run error:", err);
+            toast.error("Pipeline Failed", {
+                description: "Unexpected error",
+                duration: 3000,
+            });
+        }
+    }
+
     // This function combines the download preparation and saving serial numbers
-    function prepareDownloadAndSave() {
-        prepareDownload();
-        save_serial_numbers();
-        save_input_file();
+    async function prepareDownloadAndSave() {
+        try {
+            // Save serial numbers to serianl_number.txt
+            await save_serial_numbers();
+            
+            // Save the JSON file as commands.json
+            await save_input_file();
+            
+            // Package the .command file
+            await run_pipeline();
+            
+            // Serve the .command file for download
+            await prepareDownload();
+        
+        } catch (error) {
+            console.error("Error in prepareDownloadAndSave:", error);
+            toast.error("Error preparing download", {
+                description: "An error occurred while preparing your download.",
+                duration: 3000,
+            });
+        }
+
     }
 
 </script>

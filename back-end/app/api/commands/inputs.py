@@ -4,10 +4,17 @@ from pydantic import BaseModel, constr
 from pathlib import Path
 from typing import Annotated
 
+import os
+
 router = APIRouter(prefix="/inputs")
 
-SAVE_PATH_SERIAL = Path("serial_number.txt")
-SAVE_PATH_JSON = Path("input_commands.json")
+commands_dir = Path("C:/Users/christian.leonard/Documents/code/IoT/Stratus/commands")
+
+SAVE_PATH_SERIAL = commands_dir / "_output" / "serial_number.txt"
+SAVE_PATH_SERIAL.parent.mkdir(parents=True, exist_ok=True)
+
+SAVE_PATH_JSON = commands_dir / "json" / "commands.json"
+SAVE_PATH_JSON.parent.mkdir(parents=True, exist_ok=True)
 
 
 class SerialNumberInput(BaseModel):
@@ -20,13 +27,14 @@ async def save_serial_numbers(payload: SerialNumberInput):
         raise HTTPException(status_code=400, detail="Serial numbers do not match")
     
     try:
-        SAVE_PATH_SERIAL.write_text(f"{payload.serial1}\n")
+        SAVE_PATH_SERIAL.write_text(f"{payload.serial1.strip()}\n")
+        return {
+            "message": "Serial numbers saved successfully", 
+            "serial_number": payload.serial1
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save serial numbers: {str(e)}")
-    return {
-        "message": "Serial numbers saved successfully", 
-        "serial_number": payload.serial1
-        }
+
 
 @router.post("/json-file")
 async def receive_file(file: UploadFile = File(...)):
