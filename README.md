@@ -3,6 +3,14 @@
 ## Purpose
 The following project houses the *AAON-Tools* internal application as a means for engineers and internal AAON users to interact with the Stratus unit manager Updater and Command projects
 
+## Initializing
+
+**Front End**
+To initialize the SvelteKit front end, use `npm run dev` in the front-end directory. This calls starts the UI on http://localhost:5173
+
+**Back End API**
+To intialize the FastAPI backend, run the ./start_venv.sh script, followed by the./run.sh script in the back-end directory. This activates the virtual environment and initializes the FastAPI backend using uvicorn on http://localhost:8000, respectively
+
 ### Stack
 1) SvelteKit 5
 2) Tailwind 4

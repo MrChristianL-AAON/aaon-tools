@@ -13,5 +13,10 @@ export default defineConfig({
 	},
 	ssr: {
 		noExternal: ['svelte-sonner']
+	},
+	server: {
+		proxy: {
+			'/api': 'http://localhost:8000' // FastAPI backend proxy
+		}
 	}
 });

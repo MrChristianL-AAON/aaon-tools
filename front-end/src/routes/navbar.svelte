@@ -22,7 +22,7 @@
 </script>
 
 <main>
-    <div class="fixed left-0 top-0 h-full bg-aaon-blue shadow-md z-0 w-16 md:w-32 lg:w-64 xl:w-80 2xl:w-96 transition-width duration-300 overflow-hidden">
+    <div class="fixed left-0 top-0 h-full bg-aaon-blue shadow-md z-50 w-16 md:w-32 lg:w-64 xl:w-80 2xl:w-96 transition-width duration-300 overflow-hidden">
         <nav class="flex flex-col pt-8 w-full h-full">
             <!-- Logo - scaled appropriately -->
             <div class="px-2 md:px-4 lg:px-6">

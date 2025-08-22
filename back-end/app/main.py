@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 # include your first router
-app.include_router(files.router)
-app.include_router(inputs.router)
-app.include_router(pipeline.router)
+app.include_router(files.router, prefix="/api")
+app.include_router(inputs.router, prefix="/api")
+app.include_router(pipeline.router, prefix="/api")
 
 
 origins = [
@@ -23,7 +23,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 def read_root():
-    return {"message": "Test"}
+    return {"message": "Welcome to the AAON Tools API!"}

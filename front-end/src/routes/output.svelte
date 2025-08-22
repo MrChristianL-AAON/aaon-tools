@@ -74,7 +74,7 @@
             const filename = `Stratus_${yyyymmdd}.command`;
 
             // 2. Fetch the file
-            const fileRes = await fetch(`http://localhost:8000/command/${filename}`);
+            const fileRes = await fetch(`/api/command/${filename}`);
             if (!fileRes.ok) {
                 throw new Error(`Failed to fetch file: ${filename}`);
             }
@@ -141,10 +141,11 @@
     async function save_serial_numbers() {
         let message = "";
         if (!serialFormValue.match) {
-            return toast.error("Serial numbers do not match", {
+            toast.error("Serial numbers do not match", {
                 description: "Please ensure both serial numbers are entered correctly.",
                 duration: 2000,
             });
+            throw new Error("Serial numbers do not match");
         }
 
         try {
@@ -152,9 +153,12 @@
             const response = await fetch('/api/inputs/serial-numbers', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'text/plain',
+                    'Content-Type': 'application/json',
                 },
-                body: bodyText
+                body: JSON.stringify({
+                    serial1: serialFormValue.serial_number,
+                    serial2: serialFormValue.second_serial_number
+                })
             });
             if (!response.ok) {
                 throw new Error(`Error: ${response.statusText}`);
@@ -188,7 +192,7 @@
             const formData = new FormData();
             formData.append('file', jsonFileValue.file);
 
-            const response = await fetch('/api/inputs/json', {
+            const response = await fetch('/api/inputs/json-file', {
                 method: 'POST',
                 body: formData
             });
