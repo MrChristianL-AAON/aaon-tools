@@ -1,11 +1,9 @@
 <script lang="ts">
     import { serialFormStore, jsonFileStore } from '$lib/stores';
-    import Progress from '$lib/components/ui/progress/progress.svelte';
+    // Remove the Progress import since we're using Spinner instead
+    // import Progress from '$lib/components/ui/progress/progress.svelte';
 
     import { toast } from 'svelte-sonner';
-    import { now } from '@internationalized/date';
-
-    import { Spinner, Button } from 'flowbite-svelte';
 
     interface OutputFile {
         name: string;
@@ -22,7 +20,8 @@
     
     // States for UI
     let isPreparing = $state(false);
-    let progress = $state(0);
+    // Remove progress state since we're not using progress bar anymore
+    // let progress = $state(0);
     let errorMessage = $state("");
     
     // Use auto-subscribed store values with $state to track them
@@ -56,18 +55,12 @@
     
     // Function to prepare & fetch file from backend
     async function prepareDownload() {
-        if (!canGenerate || isPreparing) return;
+        if (!canGenerate) return;
 
         try {
-            isPreparing = true;
-            errorMessage = "";
-            progress = 0;
-
-            // Show progress (optional fake loop for UI feedback)
-            for (let i = 0; i <= 10; i++) {
-                await new Promise(resolve => setTimeout(resolve, 150));
-                progress = i * 10;
-            }
+            // Remove the fake progress loop since we're using a spinner instead
+            // Just add a small delay for better UX
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             // 1. Ask backend which files exist
             const date = new Date();
@@ -103,8 +96,7 @@
                 description: errorMessage,
                 duration: 3000,
             });
-        } finally {
-            isPreparing = false;
+            throw error; // Re-throw so the parent function can handle it
         }
     }
 
@@ -127,7 +119,8 @@
             isReady: false
         };
         isPreparing = false;
-        progress = 0;
+        // Remove progress reset since we're not using it anymore
+        // progress = 0;
         errorMessage = "";
         jsonFileValue.file = null; // Reset the JSON file state
         serialFormValue.serial_number = "";
@@ -253,7 +246,12 @@
 
     // This function combines the download preparation and saving serial numbers
     async function prepareDownloadAndSave() {
+        if (isPreparing) return;
+        
         try {
+            isPreparing = true;
+            errorMessage = "";
+            
             // Save serial numbers to serianl_number.txt
             await save_serial_numbers();
             
@@ -272,11 +270,29 @@
                 description: "An error occurred while preparing your download.",
                 duration: 3000,
             });
+        } finally {
+            isPreparing = false;
         }
 
     }
 
 </script>
+
+<style>
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #2563eb;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
 
 <main class="p-4 sm:p-5 w-full bg-card-background rounded-2xl shadow-lg">
     <h1 class="text-xl sm:text-2xl font-bold mb-1 text-dark-text">Output File</h1>
@@ -286,30 +302,27 @@
     
     <div class="mt-4 sm:mt-6">
         {#if !output_file.isReady}
-            {#if isPreparing}
-                <div class="flex flex-col items-center py-4">
-                    <p class="mb-2 text-sm sm:text-base">Preparing your encrypted command package...</p>
-                    <Progress value={progress} class="w-full h-2 mb-2" />
-                    <p class="text-xs sm:text-sm text-gray-500">{progress}%</p>
-                </div>
-            {:else}
-                <button 
-                    onclick={prepareDownloadAndSave}
-                    disabled={!canGenerate} 
-                    class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate ? 'bg-gray-300 cursor-not-allowed' : 'bg-aaon-blue hover:bg-aaon-blue-light'} text-white rounded-md transition-colors duration-200"
-                >
-                    Generate Encrypted Command Package
-                </button>
-                
-                {#if !canGenerate}
-                    <p class="text-xs sm:text-sm text-red-500 mt-2">
-                        Please ensure you've provided matching serial numbers and uploaded a JSON file.
-                    </p>
+            <button 
+                onclick={prepareDownloadAndSave}
+                disabled={!canGenerate || isPreparing} 
+                class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate || isPreparing ? 'bg-gray-300 cursor-not-allowed' : 'bg-aaon-blue hover:bg-aaon-blue-light text-white'} rounded-md transition-colors duration-200"
+            >
+                {#if isPreparing}
+                    <div class="spinner mr-2"></div>
+                    <span class="text-aaon-blue">Preparing...</span>
+                {:else}
+                    <span class="text-white">Generate Encrypted Command Package</span>
                 {/if}
-                
-                {#if errorMessage}
-                    <p class="text-xs sm:text-sm text-red-500 mt-2">{errorMessage}</p>
-                {/if}
+            </button>
+            
+            {#if !canGenerate && !isPreparing}
+                <p class="text-xs sm:text-sm text-red-500 mt-2">
+                    Please ensure you've provided matching serial numbers and uploaded a JSON file.
+                </p>
+            {/if}
+            
+            {#if errorMessage}
+                <p class="text-xs sm:text-sm text-red-500 mt-2">{errorMessage}</p>
             {/if}
         {:else}
             <div class="border border-gray-200 rounded-md p-3 sm:p-4 mb-3 sm:mb-4 bg-gray-50">
