@@ -5,6 +5,8 @@
     import { toast } from 'svelte-sonner';
     import { now } from '@internationalized/date';
 
+    import { Spinner, Button } from 'flowbite-svelte';
+
     interface OutputFile {
         name: string;
         url: string | null;
@@ -164,12 +166,8 @@
                 throw new Error(`Error: ${response.statusText}`);
             }
             const data = await response.json();
-            console.log('Success:', data);
-            message = data.message || "Serial numbers saved successfully.";
-            toast.success(message, {
-                description: message,
-                duration: 1500,
-            });
+            console.log('Serial numbers saved successfully:', data);
+
         } catch (error) {
             console.error('Error:', error);
             message = "Failed to save serial number";
@@ -202,11 +200,7 @@
             }
 
             const data = await response.json();
-            console.log('File saved successfully:', data);
-            toast.success('File uploaded successfully', {
-                description: data.message || "Your JSON file has been uploaded.",
-                duration: 1500,
-            });
+            console.log('JSON file saved successfully:', data);
         } catch (error) {
             console.error('Error uploading file:', error);
             toast.error('File upload failed', {

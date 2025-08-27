@@ -124,7 +124,7 @@
     );
 </script>
 
-<main class="box-border p-4 sm:p-5 w-full h-full bg-card-background rounded-2xl sm:rounded-3xl shadow-lg">
+<main class="flex flex-col justify-center box-border p-4 sm:p-5 w-full h-full bg-card-background rounded-2xl sm:rounded-3xl shadow-lg">
 
     <h1 class="text-xl sm:text-2xl font-bold mb-1 text-dark-text">JSON File</h1>
     <p class="pt-1 sm:pt-2 text-sm sm:text-base text-light-text">Upload your JSON file of MQTT commands to be encrypted and securely packaged, ready to be safely applied to a Stratus unit manager.</p>
@@ -149,7 +149,7 @@
             role="button"
             tabindex="0"
             aria-label="Drop zone for JSON file upload"
-            class="w-full h-24 sm:h-32 border-2 border-dashed rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aaon-blue focus:border-aaon-blue {isDragging ? 'border-aaon-blue bg-blue-50' : 'border-input-border bg-input-background'}"
+            class="flex flex-col justify-center sm:h-32 border-2 border-dashed rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aaon-blue focus:border-aaon-blue {isDragging ? 'border-aaon-blue bg-blue-50' : 'border-input-border bg-input-background'}"
         >
             <button 
                 onclick={openFileBrowser} 
@@ -162,9 +162,11 @@
                 />
                 <span class="text-sm sm:text-base text-gray-500 px-4 truncate max-w-full">{upload_prompt}</span>
             </button>
+        </div>
+        <div>
             <button
                 onclick={clearFile}
-                class="mt-2 text-sm text-aaon-blue hover:underline">
+                class="mt-2 w-full text-aaon-blue hover:underline">
                 clear
             </button>
         </div>
