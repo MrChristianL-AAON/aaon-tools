@@ -305,13 +305,13 @@
             <button 
                 onclick={prepareDownloadAndSave}
                 disabled={!canGenerate || isPreparing} 
-                class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate || isPreparing ? 'bg-gray-300 cursor-not-allowed' : 'bg-aaon-blue hover:bg-aaon-blue-light text-white'} rounded-md transition-colors duration-200"
+                class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate || isPreparing ? 'bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-aaon-blue-light text-white'} rounded-md transition-colors duration-200"
             >
                 {#if isPreparing}
                     <div class="spinner mr-2"></div>
                     <span class="text-aaon-blue">Preparing...</span>
                 {:else}
-                    <span class="text-white">Generate Encrypted Command Package</span>
+                    <span class="">Generate Encrypted Command Package</span>
                 {/if}
             </button>
             
