@@ -44,7 +44,7 @@
             </div>
             
             <!-- Navigation buttons -->
-            <div class="flex flex-col mt-6 md:mt-12 lg:mt-16 w-full text-navbar-text text-sm md:text-base lg:text-lg font-base">
+            <div class="flex flex-col ml-8 mt-6 md:mt-12 pr-20 lg:mt-16 w-full text-navbar-text text-sm md:text-base lg:text-lg font-base">
                 <!-- Commands Button -->
                 <button 
                     class="{isActive('commands') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
