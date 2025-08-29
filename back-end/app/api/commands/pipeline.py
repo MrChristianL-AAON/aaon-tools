@@ -1,5 +1,4 @@
 import subprocess
-import os
 from fastapi import APIRouter
 from pathlib import Path
 

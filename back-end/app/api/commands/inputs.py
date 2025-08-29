@@ -4,8 +4,6 @@ from pydantic import BaseModel, constr
 from pathlib import Path
 from typing import Annotated
 
-import os
-
 router = APIRouter(prefix="/inputs")
 
 commands_dir = Path("C:/Users/christian.leonard/Documents/code/IoT/Stratus/commands")

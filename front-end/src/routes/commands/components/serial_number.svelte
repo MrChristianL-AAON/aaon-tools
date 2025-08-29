@@ -1,5 +1,5 @@
 <script lang="ts">
-    import '../app.css';
+    import '../../../app.css';
     import { serialFormStore } from '$lib/stores';
     import valid from '$lib/assets/valid.svg';
     import invalid from '$lib/assets/invalid.svg';
