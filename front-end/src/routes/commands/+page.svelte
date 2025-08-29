@@ -2,9 +2,6 @@
     import SerialNumber from './components/serial_number.svelte';
     import JsonCard from './components/json_file.svelte';   
     import Output from './components/output.svelte';
-
-    let { children } = $props();
-
 </script>
 
 <main>
@@ -31,5 +28,3 @@
         </div>
     </div>
 </main>
-
-{@render children?.()}
