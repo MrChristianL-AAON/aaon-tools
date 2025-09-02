@@ -156,9 +156,21 @@
 
     // Fixed: Use $debFiles instead of get(debFiles) to make it reactive
     let uploaded_image = $derived($debFiles.length > 0 ? Uploaded : Upload);
+    
+    // Calculate total size and format it
+    let totalSize = $derived($debFiles.reduce((total, file) => total + file.size, 0));
+    
+    let formattedSize = $derived(
+        totalSize === 0 ? '0 B' : (() => {
+            const units = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(totalSize) / Math.log(1024));
+            return `${(totalSize / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+        })()
+    );
+    
     let upload_prompt = $derived(
         $debFiles.length > 0
-            ? `${$debFiles.length} file(s) selected`
+            ? `${$debFiles.length} file${$debFiles.length === 1 ? '' : 's'} (${formattedSize})`
             : isDragging
                 ? "Drop your .deb or .zip files here..."
                 : "Drag 'n' drop your .deb/.zip files or folder here, or click to browse"
@@ -216,30 +228,32 @@
 
         <div class="flex justify-between items-center mt-2">
             {#if $debFiles.length > 0}
-                <div class="mt-2 text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light hover:underline text-white rounded-md">
+                <div class="mt-2 px-3 py-2 bg-aaon-blue-light text-white rounded-md hover:underline">
                     <Dialog.Root>
-                        <Dialog.Trigger>{showList ? "Hide Files" : "Show Files"}</Dialog.Trigger>
+                        <Dialog.Trigger>{showList ? "Hide files" : "Show files"}</Dialog.Trigger>
                         <Dialog.Content>
                             <Dialog.Header>
-                                <Dialog.Title>Uploaded Debs</Dialog.Title>
+                                <Dialog.Title>Uploaded Debs ({$debFiles.length} files, {formattedSize})</Dialog.Title>
                                 <Dialog.Description>
                                     <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md max-h-60 overflow-y-auto">
                                         {#each $debFiles as f}
-                                            <li class="py-1 border-b last:border-none">{f.name}</li>
+                                            <li class="py-1 border-b last:border-none flex justify-between">
+                                                <span>{f.name}</span>
+                                                <span class="text-gray-500 text-xs">
+                                                    {(() => {
+                                                        if (f.size === 0) return '0 B';
+                                                        const units = ['B', 'KB', 'MB', 'GB'];
+                                                        const i = Math.floor(Math.log(f.size) / Math.log(1024));
+                                                        return `${(f.size / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+                                                    })()}
+                                                </span>
+                                            </li>
                                         {/each}
                                     </ul>
                                 </Dialog.Description>
                             </Dialog.Header>
                         </Dialog.Content>
                     </Dialog.Root>
-                </div>
-            {:else}
-                <div>
-                    {#if $debFiles.length === 0}
-                        <p class="text-xs sm:text-sm text-red-500 mt-2">
-                            Please ensure you've provided matching serial numbers and uploaded a JSON file.
-                        </p>
-                    {/if}
                 </div>
             {/if}
 
