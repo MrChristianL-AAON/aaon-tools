@@ -1,6 +1,7 @@
 <script lang="ts">
 
     import UpdateBuilder from './components/update_builder.svelte';
+    import BuildButton from './components/build_button.svelte';
 
     let { children } = $props();
 
@@ -17,6 +18,10 @@
                     <UpdateBuilder />
                 </div>
             
+                <div>
+                    <BuildButton />
+                </div>
+
             </div>
 
         </div>

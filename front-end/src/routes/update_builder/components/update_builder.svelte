@@ -2,6 +2,7 @@
     import Upload from '$lib/assets/upload.svg';
     import Uploaded from '$lib/assets/uploaded.svg';
     import { toast } from 'svelte-sonner';
+    import * as Dialog from "$lib/components/ui/dialog/index.js";
 
     // Store multiple files
     let debFiles = $state<File[]>([]);
@@ -81,15 +82,55 @@
         event.stopPropagation();
         isDragging = false;
     }
-    function handleDrop(event: DragEvent) {
+
+    // Recursively collect files from dropped folders
+    async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Promise<File[]> {
+        const files: File[] = [];
+        const traverse = async (entry: any) => {
+            if (entry.isFile) {
+                await new Promise<void>(resolve => {
+                    entry.file((file: File) => {
+                        if (isValidFile(file)) files.push(file);
+                        resolve();
+                    });
+                });
+            } else if (entry.isDirectory) {
+                const reader = entry.createReader();
+                await new Promise<void>(resolve => {
+                    reader.readEntries(async (entries: any[]) => {
+                        for (const e of entries) await traverse(e);
+                        resolve();
+                    });
+                });
+            }
+        };
+        for (let i = 0; i < items.length; i++) {
+            const entry = items[i].webkitGetAsEntry?.();
+            if (entry) await traverse(entry);
+        }
+        return files;
+    }
+
+    async function handleDrop(event: DragEvent) {
         event.preventDefault();
         event.stopPropagation();
         isDragging = false;
 
-        if (event.dataTransfer && event.dataTransfer.files.length > 0) {
+        if (event.dataTransfer && event.dataTransfer.items && event.dataTransfer.items.length > 0) {
+            const files = await getAllFilesFromDataTransferItems(event.dataTransfer.items);
+            if (files.length > 0) {
+                debFiles = [...debFiles, ...files];
+                toast.success('Files Uploaded', {
+                    description: `${files.length} valid file(s) added from folder(s).`,
+                    duration: 1500,
+                });
+            } else {
+                showFileTypeError();
+            }
+        } else if (event.dataTransfer && event.dataTransfer.files.length > 0) {
+            // fallback for browsers that don't support webkitGetAsEntry
             const files = Array.from(event.dataTransfer.files);
             const validFiles = files.filter(isValidFile);
-
             if (validFiles.length > 0) {
                 debFiles = [...debFiles, ...validFiles];
                 toast.success('Files Uploaded', {
@@ -120,13 +161,16 @@
                 ? "Drop your .deb or .zip files here..."
                 : "Drag 'n' drop your .deb/.zip files or folder here, or click to browse"
     );
+
+    // Toggle list of files
+    let showList = $state(false);
+
 </script>
 
 <main class="flex flex-col justify-center box-border p-4 sm:p-5 w-full h-full bg-card-background rounded-2xl sm:rounded-3xl shadow-lg">
     <h1 class="text-xl sm:text-2xl font-bold mb-1 text-dark-text">.deb Packages</h1>
     <p class="pt-1 sm:pt-2 text-sm sm:text-base text-light-text">
-        Upload one or more .deb or .zip files, or drag in a folder of .deb files.
-        These will be automatically arranged into the correct repository format, signed, and encrypted.
+        Upload a folder of .deb files to be packaged into the update package. The resulting update package will be automatically arranged into the correct repository format, signed, and encrypted that is ready to be placed onto a USB and applied to a Stratus unit manager device.
     </p>
 
     <div class="mt-4 sm:mt-6">
@@ -168,21 +212,50 @@
             </button>
         </div>
 
-        {#if debFiles.length > 0}
-            <ul class="mt-2 text-sm text-dark-text">
-                {#each debFiles as f}
-                    <li>{f.name}</li>
-                {/each}
-            </ul>
-        {/if}
+        <div class="flex justify-between items-center mt-2">
+                {#if debFiles.length > 0}
+                    <div class="mt-2 px-3 py-2 bg-aaon-blue-light text-white rounded-md hover:underline">
+                        <Dialog.Root>
+                            <Dialog.Trigger>{showList ? "Hide files" : "Show files"}</Dialog.Trigger>
+                            <Dialog.Content>
+                                <Dialog.Header>
+                                <Dialog.Title>Uploaded Debs</Dialog.Title>
+                                <Dialog.Description>
+                                    <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md max-h-60 overflow-y-auto">
+                                        {#each debFiles as f}
+                                        <li class="py-1 border-b last:border-none">{f.name}</li>
+                                        {/each}
+                                    </ul>
+                                </Dialog.Description>
+                                </Dialog.Header>
+                            </Dialog.Content>
+                        </Dialog.Root>
+                    </div>
+                {/if}
 
-        <div>
-            <button
-                onclick={clearFiles}
-                class="mt-2 w-full text-aaon-blue hover:underline"
-            >
-                clear
-            </button>
+                <div class="flex ml-4">
+                    {#if showList && debFiles.length > 0}
+                    <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md">
+                        {#each debFiles as f}
+                        <li class="py-1 border-b last:border-none">{f.name}</li>
+                        {/each}
+                    </ul>
+                    {/if}
+                </div>
+                
+            
+            <div>
+                {#if debFiles.length > 0}
+                    <button
+                        onclick={clearFiles}
+                        class="mt-2 w-full text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue-light text-white rounded-md bg-aaon-blue hover:bg-aaon-blue-light text-white'}"
+                    >
+                        Clear
+                    </button>
+                {/if}
+            </div>        
+
         </div>
+
     </div>
 </main>
