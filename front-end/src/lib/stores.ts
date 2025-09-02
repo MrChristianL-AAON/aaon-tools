@@ -17,3 +17,6 @@ export const jsonFileStore = writable<{
 }>({
     file: null
 });
+
+
+export const debFiles = writable<File[]>([]);

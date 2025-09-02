@@ -5,7 +5,7 @@
     import * as Dialog from "$lib/components/ui/dialog/index.js";
 
     // Store multiple files
-    let debFiles = $state<File[]>([]);
+    import { debFiles } from '$lib/stores';
 
     let fileInput: HTMLInputElement;
     let isDragging = $state(false);
@@ -22,23 +22,24 @@
             const validFiles = Array.from(input.files).filter(isValidFile);
 
             if (validFiles.length > 0) {
-                debFiles = validFiles;
+                debFiles.set(validFiles);
+                
                 toast.success('Files Uploaded', {
                     description: `${validFiles.length} valid file(s) uploaded.`,
                     duration: 1500,
                 });
             } else {
                 showFileTypeError();
-                debFiles = [];
+                debFiles.set([]);
             }
         } else {
-            debFiles = [];
+            debFiles.set([]);
         }
     }
 
     function handleFileFromDrop(file: File) {
         if (isValidFile(file)) {
-            debFiles = [...debFiles, file];
+            debFiles.update(files => [...files, file]);
             toast.success('File Uploaded', {
                 description: `${file.name} uploaded.`,
                 duration: 1500,
@@ -119,7 +120,7 @@
         if (event.dataTransfer && event.dataTransfer.items && event.dataTransfer.items.length > 0) {
             const files = await getAllFilesFromDataTransferItems(event.dataTransfer.items);
             if (files.length > 0) {
-                debFiles = [...debFiles, ...files];
+                debFiles.update(existingFiles => [...existingFiles, ...files]);
                 toast.success('Files Uploaded', {
                     description: `${files.length} valid file(s) added from folder(s).`,
                     duration: 1500,
@@ -132,7 +133,7 @@
             const files = Array.from(event.dataTransfer.files);
             const validFiles = files.filter(isValidFile);
             if (validFiles.length > 0) {
-                debFiles = [...debFiles, ...validFiles];
+                debFiles.update(existingFiles => [...existingFiles, ...validFiles]);
                 toast.success('Files Uploaded', {
                     description: `${validFiles.length} valid file(s) added.`,
                     duration: 1500,
@@ -144,7 +145,7 @@
     }
 
     function clearFiles() {
-        debFiles = [];
+        debFiles.set([]);
         fileInput.value = '';
         isDragging = false;
         toast.info('Files Cleared', {
@@ -153,10 +154,11 @@
         });
     }
 
-    let uploaded_image = $derived(debFiles.length > 0 ? Uploaded : Upload);
+    // Fixed: Use $debFiles instead of get(debFiles) to make it reactive
+    let uploaded_image = $derived($debFiles.length > 0 ? Uploaded : Upload);
     let upload_prompt = $derived(
-        debFiles.length > 0
-            ? `${debFiles.length} file(s) selected`
+        $debFiles.length > 0
+            ? `${$debFiles.length} file(s) selected`
             : isDragging
                 ? "Drop your .deb or .zip files here..."
                 : "Drag 'n' drop your .deb/.zip files or folder here, or click to browse"
@@ -213,49 +215,54 @@
         </div>
 
         <div class="flex justify-between items-center mt-2">
-                {#if debFiles.length > 0}
-                    <div class="mt-2 px-3 py-2 bg-aaon-blue-light text-white rounded-md hover:underline">
-                        <Dialog.Root>
-                            <Dialog.Trigger>{showList ? "Hide files" : "Show files"}</Dialog.Trigger>
-                            <Dialog.Content>
-                                <Dialog.Header>
+            {#if $debFiles.length > 0}
+                <div class="mt-2 text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light hover:underline text-white rounded-md">
+                    <Dialog.Root>
+                        <Dialog.Trigger>{showList ? "Hide Files" : "Show Files"}</Dialog.Trigger>
+                        <Dialog.Content>
+                            <Dialog.Header>
                                 <Dialog.Title>Uploaded Debs</Dialog.Title>
                                 <Dialog.Description>
                                     <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md max-h-60 overflow-y-auto">
-                                        {#each debFiles as f}
-                                        <li class="py-1 border-b last:border-none">{f.name}</li>
+                                        {#each $debFiles as f}
+                                            <li class="py-1 border-b last:border-none">{f.name}</li>
                                         {/each}
                                     </ul>
                                 </Dialog.Description>
-                                </Dialog.Header>
-                            </Dialog.Content>
-                        </Dialog.Root>
-                    </div>
-                {/if}
-
-                <div class="flex ml-4">
-                    {#if showList && debFiles.length > 0}
-                    <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md">
-                        {#each debFiles as f}
-                        <li class="py-1 border-b last:border-none">{f.name}</li>
-                        {/each}
-                    </ul>
+                            </Dialog.Header>
+                        </Dialog.Content>
+                    </Dialog.Root>
+                </div>
+            {:else}
+                <div>
+                    {#if $debFiles.length === 0}
+                        <p class="text-xs sm:text-sm text-red-500 mt-2">
+                            Please ensure you've provided matching serial numbers and uploaded a JSON file.
+                        </p>
                     {/if}
                 </div>
-                
+            {/if}
+
+            <div class="flex ml-4">
+                {#if showList && $debFiles.length > 0}
+                    <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md">
+                        {#each $debFiles as f}
+                            <li class="py-1 border-b last:border-none">{f.name}</li>
+                        {/each}
+                    </ul>
+                {/if}
+            </div>
             
             <div>
-                {#if debFiles.length > 0}
+                {#if $debFiles.length > 0}
                     <button
                         onclick={clearFiles}
-                        class="mt-2 w-full text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue-light text-white rounded-md bg-aaon-blue hover:bg-aaon-blue-light text-white'}"
+                        class="mt-2 w-full text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light text-white rounded-md"
                     >
                         Clear
                     </button>
                 {/if}
             </div>        
-
         </div>
-
     </div>
 </main>
