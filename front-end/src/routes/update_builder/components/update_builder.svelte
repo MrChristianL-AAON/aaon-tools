@@ -255,6 +255,10 @@
                         </Dialog.Content>
                     </Dialog.Root>
                 </div>
+            {:else}
+                <p class="text-xs sm:text-sm text-red-500 mt-2">
+                    Please ensure you've provided valid .deb files to proceed with the update packaging process.
+                </p>
             {/if}
 
             <div class="flex ml-4">
@@ -272,7 +276,7 @@
                     <button
                         onclick={clearFiles}
                         class="mt-2 w-full text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light text-white rounded-md"
-                    >
+>
                         Clear
                     </button>
                 {/if}
