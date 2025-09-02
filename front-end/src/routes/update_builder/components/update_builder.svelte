@@ -170,7 +170,7 @@
     
     let upload_prompt = $derived(
         $debFiles.length > 0
-            ? `${$debFiles.length} file${$debFiles.length === 1 ? '' : 's'} (${formattedSize})`
+            ? `${$debFiles.length} file${$debFiles.length === 1 ? '' : 's'} selected, ${formattedSize} in size`
             : isDragging
                 ? "Drop your .deb or .zip files here..."
                 : "Drag 'n' drop your .deb/.zip files or folder here, or click to browse"
@@ -195,7 +195,7 @@
             type="file"
             id="deb-upload"
             multiple
-            webkitdirectory
+            accept=".deb,.zip"
             onchange={handleFileChange}
             bind:this={fileInput}
             class="hidden"
