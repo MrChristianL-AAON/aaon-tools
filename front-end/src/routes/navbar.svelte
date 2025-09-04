@@ -10,7 +10,7 @@
     let username = $state("User");
     
     // Track the active page/section
-    let activeSection = $state("commands"); // Default active section
+    let activeSection = $state("dashboard"); // Default active section
     
     // Function to set active section
     function setActive(section: string) {
@@ -47,6 +47,19 @@
             
             <!-- Navigation buttons -->
             <div class="flex flex-col ml-8 mt-6 md:mt-12 pr-20 lg:mt-16 w-full text-navbar-text text-sm md:text-base lg:text-lg font-base">
+                <!-- Dashboard/Home Button -->
+                <button 
+                    class="{isActive('dashboard') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
+                    onclick={() => {
+                        setActive('dashboard')
+                        goto('/');
+                    }}>
+                    <div class="flex items-center gap-2 md:gap-3 lg:gap-4">
+                        <img src={Box} alt="" class="w-6 h-6" />
+                        <span class="hidden md:inline-block truncate">Tools Dashboard</span>
+                    </div>
+                </button>
+
                 <!-- Commands Button -->
                 <button 
                     class="{isActive('commands') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
