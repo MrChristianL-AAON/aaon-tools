@@ -23,6 +23,34 @@
 
     let uploadProgress = 0; // 0–100
 
+    function toggleDevView() {
+        if (output_files.isReady) {
+            // If the view is on, turn it off by resetting the state
+            output_files.isReady = false;
+            output_files.updateFile = null;
+            output_files.jsonFile = null;
+            output_files.allFiles = [];
+        } else {
+            // If the view is off, turn it on by populating with mock data
+            output_files.isReady = true;
+            output_files.updateFile = {
+                name: 'stratus-update-package.update',
+                path: 'mock/path/stratus-update-package.update'
+            };
+            output_files.jsonFile = {
+                name: 'stratus-update-package.json',
+                path: 'mock/path/stratus-update-package.json'
+            };
+            output_files.allFiles = [
+                'mock/path/stratus-update-package.update',
+                'mock/path/stratus-update-package.json'
+            ];
+            toast.info('Dev Mode Enabled', {
+                description: 'Showing mock download section for UI editing.'
+            });
+        }
+    }
+
     async function clearPreviousDebs() {
         try {
             console.log('Clearing previous DEB files...');
@@ -406,24 +434,34 @@
 </style>
 
 <main>
-    <div class="mt-6 flex flex-col items-center justify-center space-y-4">
-        <!-- Generate Package Button -->
-        <button 
-            class="px-4 py-3 rounded-md font-base text-lg sm:text-xl transition-colors duration-200
-            {$debFiles.length === 0 ? 'border border-light-text bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-gray-400 hover:cursor-pointer text-white'}"        
-            disabled={!canGenerate || isPreparing}
-            onclick={updatePipeline}        
+    <div>
+        <button
+            onclick={toggleDevView}
+            class="absolute top-2 right-2 bg-gray-200 text-gray-600 text-xs font-mono px-2 py-1 rounded hover:bg-gray-300"
+            title="Toggle developer view to see download section for UI editing"
         >
-            {#if isPreparing}
-                <span class="spinner mr-2"></span>
-                <span>Building Update Package...</span>
-            {:else}
-                <span>Generate Update Package</span>
-            {/if}
+            Toggle Dev View
         </button>
 
-        <!-- Download Section - Only show when files are ready -->
-        {#if output_files.isReady}
+        {#if !output_files.isReady}
+            <!-- Build button and loading button  -->
+            <div class="mt-6 flex flex-col items-center justify-center space-y-4">
+                <button 
+                class="px-4 py-3 rounded-md font-base text-lg sm:text-xl transition-colors duration-200
+                {$debFiles.length === 0 ? 'border border-light-text bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-gray-400 hover:cursor-pointer text-white'}"        
+                disabled={!canGenerate || isPreparing}
+                onclick={updatePipeline}        
+                >
+                    {#if isPreparing}
+                        <span class="spinner mr-2"></span>
+                        <span>Building Update Package...</span>
+                    {:else}
+                        <span>Generate Update Package</span>
+                    {/if}
+                </button>
+            </div>
+        {:else}
+            <!-- Download Section - Only show when files are ready -->
             <div class="mt-6 p-4 bg-gray-50 rounded-lg border max-w-md w-full">
                 <h3 class="text-lg font-semibold mb-3 text-gray-800">Download Files</h3>
                 
@@ -435,7 +473,7 @@
                                 <div class="text-xs text-gray-500">Update Package</div>
                             </div>
                             <button 
-                                class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm transition-colors duration-200"
+                                class="px-3 py-2 bg-aaon-blue-light hover:bg-aaon-blue text-white rounded-md text-sm transition-colors duration-200"
                                 onclick={() => downloadFile(output_files.updateFile!.path, output_files.updateFile!.name)}
                             >
                                 Download
@@ -447,10 +485,10 @@
                         <div class="flex items-center justify-between p-2 bg-white rounded border">
                             <div class="flex-1">
                                 <div class="font-medium text-sm">{output_files.jsonFile.name}</div>
-                                <div class="text-xs text-gray-500">Manifest JSON</div>
+                                <div class="text-xs text-gray-500">Package Version Tracking JSON</div>
                             </div>
                             <button 
-                                class="file-download-button"
+                                class="px-3 py-2 bg-aaon-blue-light hover:bg-aaon-blue text-white rounded-md text-sm transition-colors duration-200"
                                 onclick={() => downloadFile(output_files.jsonFile!.path, output_files.jsonFile!.name)}
                             >
                                 Download
@@ -461,24 +499,13 @@
 
                 {#if output_files.updateFile && output_files.jsonFile}
                     <button 
-                        class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors duration-200"
+                        class="w-full px-4 py-2 bg-aaon-blue-light hover:bg-aaon-blue text-white rounded-md font-medium transition-colors duration-200"
                         onclick={downloadAllFiles}
                     >
-                        Download All Files
+                        Download Files
                     </button>
                 {/if}
 
-                <!-- Show all files found for debugging -->
-                {#if output_files.allFiles.length > 0}
-                    <details class="mt-3">
-                        <summary class="text-sm text-gray-600 cursor-pointer">All output files ({output_files.allFiles.length})</summary>
-                        <div class="mt-2 space-y-1">
-                            {#each output_files.allFiles as file}
-                                <div class="text-xs text-gray-500 font-mono">{file}</div>
-                            {/each}
-                        </div>
-                    </details>
-                {/if}
             </div>
         {/if}
     </div>
