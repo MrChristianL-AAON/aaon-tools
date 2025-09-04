@@ -23,51 +23,86 @@
 
     let uploadProgress = 0; // 0–100
 
+    async function clearPreviousDebs() {
+        try {
+            console.log('Clearing previous DEB files...');
+            const response = await fetch('/api/builder/clear_debs', {
+                method: 'POST'
+            });
+            if (!response.ok) {
+                console.error('Failed to clear previous debs');
+                toast.error('Failed to clear previous files.');
+                return false;
+            }
+            const data = await response.json();
+            console.log('Clear response:', data);
+            if (data.count > 0) {
+                toast.info(`Cleared ${data.count} previous DEB files.`);
+            }
+            return true;
+        } catch (err) {
+            console.error('Error clearing previous DEB files:', err);
+            toast.error('Error clearing previous files.');
+            return false;
+        }
+    }
+
     async function upload_debs() {
         console.log('Uploading DEB files:', $debFiles);
 
-        if (!canGenerate) {
+        if (!$debFiles || $debFiles.length === 0) {
             toast.error('Cannot upload DEB files', {
                 description: 'Please upload at least one DEB file to generate an update package.',
-                duration: 1500,
+                duration: 1500
             });
             return false;
         }
 
         try {
-            const formData = new FormData();
-            $debFiles.forEach(file => formData.append('files', file));
-            
-            console.log(`Uploading ${$debFiles.length} files...`);
-            
-            const response = await fetch('/api/builder/upload_debs', {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Upload failed with status:', response.status, errorText);
-                throw new Error(`Upload failed: ${response.statusText}`);
+            const BATCH_SIZE = 5;
+            const totalBatches = Math.ceil($debFiles.length / BATCH_SIZE);
+            let successCount = 0;
+
+            for (let i = 0; i < totalBatches; i++) {
+                const start = i * BATCH_SIZE;
+                const end = start + BATCH_SIZE;
+                const batch = $debFiles.slice(start, end);
+
+                const formData = new FormData();
+                batch.forEach((file) => formData.append('files', file));
+
+                console.log(`Uploading batch ${i + 1}/${totalBatches} (${batch.length} files)...`);
+                uploadProgress = Math.floor(((i + 1) / totalBatches) * 100);
+
+                const response = await fetch('/api/builder/upload_debs', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`Upload failed for batch ${i + 1}:`, response.status, errorText);
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log(`Batch ${i + 1} response:`, data);
+                successCount += batch.length;
             }
-            
-            const data = await response.json();
-            console.log('Upload response:', data);
-            
+
             toast.success('DEB files uploaded successfully', {
-                description: `All ${$debFiles.length} files uploaded!`,
-                duration: 1500,
+                description: `All ${successCount} files uploaded!`,
+                duration: 1500
             });
-            
+
             uploadProgress = 100;
             return true;
         } catch (err) {
             console.error('Error uploading DEB files:', err);
             toast.error('Upload Error', {
                 description: 'An error occurred while uploading DEB files. Please try again.',
-                duration: 1500,
+                duration: 1500
             });
-            uploadProgress = 0;
             return false;
         }
     }
@@ -127,10 +162,12 @@
             const data = await res.json();
             console.log('Output files response:', data);
             console.log('Files array:', data.files);
-            
-            if (!data.files || data.files.length === 0) {
-                console.warn('No files returned from API');
-                throw new Error('No output files found. Pipeline may still be running.');
+
+            if (!data.files || data.files.length <= 2) {
+                console.warn(
+                    `Pipeline not complete. Found ${data.files ? data.files.length : 0} files, waiting for more than 2.`
+                );
+                throw new Error('Pipeline still running.');
             }
 
             // Clear existing files
@@ -138,13 +175,13 @@
             // Add new files
             output_files.allFiles = [...data.files];
             console.log('Set output_files.allFiles to:', output_files.allFiles);
-            
+
             // Find .update and .json files
             const updateFile = data.files.find((f: string) => f.endsWith('.update'));
             const jsonFile = data.files.find((f: string) => f.endsWith('.json'));
 
-            if (!updateFile && !jsonFile) {
-                throw new Error('No .update or .json files found in output directory');
+            if (!updateFile || !jsonFile) {
+                throw new Error('Missing .update or .json file in output directory');
             }
 
             if (updateFile) {
@@ -171,10 +208,6 @@
             return true;
         } catch (err) {
             console.error('Error preparing download:', err);
-            toast.error('Preparation Error', {
-                description: 'An error occurred while finding output files. Pipeline may still be running.',
-                duration: 2000,
-            });
             return false;
         }
     }
@@ -239,8 +272,8 @@
         }
     }
 
-    async function checkForFiles(pollInterval = 5000, maxWait = 3 * 60 * 1000) {
-        // pollInterval: time between checks in ms (5s default - reduced from 60s)
+    async function checkForFiles(pollInterval = 10000, maxWait = 3 * 60 * 1000) {
+        // pollInterval: time between checks in ms (10s)
         // maxWait: max wait time in ms (3 min default - reduced from 8 min)
         const start = Date.now();
 
@@ -292,8 +325,17 @@
             output_files.jsonFile = null;
             output_files.allFiles = [];
 
+            // 0. Clear previous DEB files
+            toast.info('Step 1/4: Clearing previous files...');
+            const clearSuccess = await clearPreviousDebs();
+            if (!clearSuccess) {
+                // Stop if clearing fails, as it might indicate a server problem
+                toast.error('Could not clear previous files. Aborting pipeline.');
+                return;
+            }
+
             // 1. Upload DEB files to correct location
-            toast.info('Step 1/3: Uploading DEB files...');
+            toast.info('Step 2/4: Uploading DEB files...');
             const uploadSuccess = await upload_debs();
             if (!uploadSuccess) {
                 toast.error('Upload failed, canceling pipeline');
@@ -301,7 +343,7 @@
             }
 
             // 2. Run the update pipeline (background process)
-            toast.info('Step 2/3: Starting build pipeline...');
+            toast.info('Step 3/4: Starting build pipeline...');
             const pipelineSuccess = await run_update_pipeline();
             if (!pipelineSuccess) {
                 toast.error('Pipeline start failed, canceling');
@@ -309,7 +351,7 @@
             }
     
             // 3. Wait for pipeline to complete and prepare download links
-            toast.info('Step 3/3: Waiting for build to complete...');
+            toast.info('Step 4/4: Waiting for build to complete...');
             
             // Check for files immediately in case they already exist
             console.log('Checking immediately for existing output files...');
