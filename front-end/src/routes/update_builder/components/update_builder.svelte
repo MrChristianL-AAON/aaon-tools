@@ -51,7 +51,7 @@
 
     function showFileTypeError() {
         toast.error('File Type Error', {
-            description: 'Please upload .deb or .zip files only.',
+            description: 'Please upload .deb files only.',
             duration: 1500,
         });
     }
@@ -172,8 +172,8 @@
         $debFiles.length > 0
             ? `${$debFiles.length} file${$debFiles.length === 1 ? '' : 's'} selected, ${formattedSize} in size`
             : isDragging
-                ? "Drop your .deb or .zip files here..."
-                : "Drag 'n' drop your .deb/.zip files or folder here, or click to browse"
+                ? "Drop your .deb files here..."
+                : "Drag 'n' drop your .deb files or folder here, or click to browse"
     );
 
     // Toggle list of files
@@ -189,7 +189,7 @@
 
     <div class="mt-4 sm:mt-6">
         <label for="deb-upload" class="text-sm sm:text-base text-dark-text block mb-2">
-            Upload your .deb or .zip files
+            Upload your .deb files
         </label>
         <input
             type="file"
@@ -228,9 +228,11 @@
 
         <div class="flex justify-between items-center mt-2">
             {#if $debFiles.length > 0}
-                <div class="mt-2 px-3 py-2 bg-aaon-blue-light text-white rounded-md hover:underline">
+                <div class="mt-2 px-3 py-2 w-24 bg-aaon-blue text-white rounded-md hover:bg-aaon-blue-light">
                     <Dialog.Root>
-                        <Dialog.Trigger>{showList ? "Hide files" : "Show files"}</Dialog.Trigger>
+                        <Dialog.Trigger
+                        class="hover:underline hover:cursor-pointer"
+                            >{showList ? "Hide files" : "Show files"}</Dialog.Trigger>
                         <Dialog.Content>
                             <Dialog.Header>
                                 <Dialog.Title>Uploaded Debs ({$debFiles.length} files, {formattedSize})</Dialog.Title>
@@ -275,7 +277,7 @@
                 {#if $debFiles.length > 0}
                     <button
                         onclick={clearFiles}
-                        class="mt-2 w-full text-aaon-blue hover:underline px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light text-white rounded-md"
+                        class="mt-2 w-full text-aaon-blue px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light hover:underline hover:cursor-pointer text-white rounded-md"
 >
                         Clear
                     </button>

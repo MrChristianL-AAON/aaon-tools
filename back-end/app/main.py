@@ -1,12 +1,11 @@
 from fastapi import FastAPI
 from .api.commands import files, inputs, pipeline
-from .api.update_archive import build, upload_debs, result
+from .api.update_builder import build, upload_debs, result
 
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# include your first router
 # command builder
 app.include_router(files.router, prefix="/api")
 app.include_router(inputs.router, prefix="/api")

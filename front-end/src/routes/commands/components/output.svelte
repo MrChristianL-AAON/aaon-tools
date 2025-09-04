@@ -58,8 +58,6 @@
         if (!canGenerate) return;
 
         try {
-            // Remove the fake progress loop since we're using a spinner instead
-            // Just add a small delay for better UX
             await new Promise(resolve => setTimeout(resolve, 500));
 
             // 1. Ask backend which files exist
@@ -119,8 +117,6 @@
             isReady: false
         };
         isPreparing = false;
-        // Remove progress reset since we're not using it anymore
-        // progress = 0;
         errorMessage = "";
         jsonFileValue.file = null; // Reset the JSON file state
         serialFormValue.serial_number = "";
@@ -305,7 +301,7 @@
             <button 
                 onclick={prepareDownloadAndSave}
                 disabled={!canGenerate || isPreparing} 
-                class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate || isPreparing ? 'bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-aaon-blue-light text-white'} rounded-md transition-colors duration-200"
+                class="w-full py-2 sm:py-3 px-3 sm:px-4 flex items-center justify-center text-sm sm:text-base {!canGenerate || isPreparing ? 'bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-gray-400 hover:cursor-pointer text-white'} rounded-md transition-colors duration-200"
             >
                 {#if isPreparing}
                     <div class="spinner mr-2"></div>

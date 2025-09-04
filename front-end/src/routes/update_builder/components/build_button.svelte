@@ -1,13 +1,443 @@
 <script lang="ts">
     import { debFiles } from '$lib/stores';
+    import { toast } from 'svelte-sonner';
+
+    interface UpdatePackage {
+        name: string;
+        updateFile: { name: string; path: string } | null;
+        jsonFile: { name: string; path: string } | null;
+        isReady: boolean;
+        allFiles: string[];
+    }
+
+    let output_files = $state<UpdatePackage>({
+        name: '',
+        updateFile: null,
+        jsonFile: null,
+        isReady: false,
+        allFiles: []
+    });
+
+    let isPreparing = $state(false);
+    let canGenerate = $derived($debFiles.length > 0);
+
+    let uploadProgress = 0; // 0–100
+
+    async function upload_debs() {
+        console.log('Uploading DEB files:', $debFiles);
+
+        if (!canGenerate) {
+            toast.error('Cannot upload DEB files', {
+                description: 'Please upload at least one DEB file to generate an update package.',
+                duration: 1500,
+            });
+            return false;
+        }
+
+        try {
+            const formData = new FormData();
+            $debFiles.forEach(file => formData.append('files', file));
+            
+            console.log(`Uploading ${$debFiles.length} files...`);
+            
+            const response = await fetch('/api/builder/upload_debs', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Upload failed with status:', response.status, errorText);
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Upload response:', data);
+            
+            toast.success('DEB files uploaded successfully', {
+                description: `All ${$debFiles.length} files uploaded!`,
+                duration: 1500,
+            });
+            
+            uploadProgress = 100;
+            return true;
+        } catch (err) {
+            console.error('Error uploading DEB files:', err);
+            toast.error('Upload Error', {
+                description: 'An error occurred while uploading DEB files. Please try again.',
+                duration: 1500,
+            });
+            uploadProgress = 0;
+            return false;
+        }
+    }
+
+    async function run_update_pipeline() {
+        try {
+
+            // Run update pipeline
+            const res = await fetch('/api/builder/build_update', {
+                method: 'POST'
+            });
+
+            if (!res.ok) {
+                throw new Error(`Pipeline failed: ${res.statusText}`);
+            }
+
+            const result = await res.json();
+            console.log('Pipeline result:', result);
+            
+            toast.success('Pipeline Started', {
+                description: 'Update package build started in background. Please wait...',
+                duration: 2000,
+            });
+
+            // Since the pipeline runs in background, we need to wait and poll for completion
+            // Wait a reasonable amount of time for the pipeline to complete
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+            
+            return true;
+        } catch (err) {
+            console.error('Error running update pipeline:', err);
+            toast.error('Pipeline Error', {
+                description: 'An error occurred while starting the update pipeline. Please try again.',
+                duration: 1500,
+            });
+            return false;
+        }
+    }
+
+    // Get list of output files and prepare download links
+    async function prepareDownload() {
+        try {
+            
+            // Prepare download
+            console.log('Fetching output files list...');
+            const res = await fetch('/api/builder/output_files', {
+                method: 'GET',
+                cache: 'no-cache' // Disable caching to ensure we get fresh data
+            });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('Output files fetch failed:', res.status, errorText);
+                throw new Error(`Error fetching output files: ${res.statusText}`);
+            }
+
+            const data = await res.json();
+            console.log('Output files response:', data);
+            console.log('Files array:', data.files);
+            
+            if (!data.files || data.files.length === 0) {
+                console.warn('No files returned from API');
+                throw new Error('No output files found. Pipeline may still be running.');
+            }
+
+            // Clear existing files
+            output_files.allFiles = [];
+            // Add new files
+            output_files.allFiles = [...data.files];
+            console.log('Set output_files.allFiles to:', output_files.allFiles);
+            
+            // Find .update and .json files
+            const updateFile = data.files.find((f: string) => f.endsWith('.update'));
+            const jsonFile = data.files.find((f: string) => f.endsWith('.json'));
+
+            if (!updateFile && !jsonFile) {
+                throw new Error('No .update or .json files found in output directory');
+            }
+
+            if (updateFile) {
+                output_files.updateFile = {
+                    name: updateFile.split('/').pop() || updateFile,
+                    path: updateFile
+                };
+            }
+            
+            if (jsonFile) {
+                output_files.jsonFile = {
+                    name: jsonFile.split('/').pop() || jsonFile,
+                    path: jsonFile
+                };
+            }
+
+            output_files.isReady = true;
+
+            toast.success('Output files found', {
+                description: `Found ${data.files.length} output files ready for download.`,
+                duration: 1500,
+            });
+
+            return true;
+        } catch (err) {
+            console.error('Error preparing download:', err);
+            toast.error('Preparation Error', {
+                description: 'An error occurred while finding output files. Pipeline may still be running.',
+                duration: 2000,
+            });
+            return false;
+        }
+    }
+
+    async function downloadFile(filePath: string, fileName: string) {
+        try {
+            
+            // Download file
+            console.log(`Attempting to download file: ${filePath}`);
+            const res = await fetch(`/api/builder/download/${encodeURIComponent(filePath)}`, {
+                method: 'GET'
+            });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error(`Error downloading ${fileName}:`, res.status, errorText);
+                throw new Error(`Error downloading ${fileName}: ${res.statusText}`);
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success(`Downloaded ${fileName}`);
+        } catch (err) {
+            console.error(`Error downloading ${fileName}:`, err);
+            toast.error('Download Error', {
+                description: `Failed to download ${fileName}. Please try again.`,
+                duration: 1500,
+            });
+        }
+    }
+
+    async function downloadAllFiles() {
+        if (!output_files.isReady) {
+            toast.error('Files Not Ready', {
+                description: 'The output files are not ready for download yet.',
+                duration: 1500,
+            });
+            return;
+        }
+
+        const downloads = [];
+        
+        if (output_files.updateFile) {
+            downloads.push(downloadFile(output_files.updateFile.path, output_files.updateFile.name));
+        }
+        
+        if (output_files.jsonFile) {
+            downloads.push(downloadFile(output_files.jsonFile.path, output_files.jsonFile.name));
+        }
+
+        if (downloads.length > 0) {
+            await Promise.all(downloads);
+            toast.success('All files downloaded successfully');
+        }
+    }
+
+    async function checkForFiles(pollInterval = 5000, maxWait = 3 * 60 * 1000) {
+        // pollInterval: time between checks in ms (5s default - reduced from 60s)
+        // maxWait: max wait time in ms (3 min default - reduced from 8 min)
+        const start = Date.now();
+
+        console.log(`Starting polling for output files every ${pollInterval/1000}s, timeout after ${maxWait/60000} min`);
+
+        // Try immediately first
+        try {
+            const success = await prepareDownload();
+            if (success) {
+                console.log("Files found immediately!");
+                return true;
+            }
+        } catch (error) {
+            console.log("First check failed:", error instanceof Error ? error.message : String(error));
+            // Continue to polling loop
+        }
+
+        while (Date.now() - start < maxWait) {
+            try {
+                console.log(`Polling for files at ${new Date().toLocaleTimeString()}...`);
+                const success = await prepareDownload();
+                if (success) {
+                    console.log("Files found during polling!");
+                    return true;
+                }
+            } catch (error) {
+                console.log(`Still waiting for files: ${error instanceof Error ? error.message : String(error)}`);
+                // still running; continue polling
+            }
+
+            console.log(`No files yet, retrying in ${pollInterval / 1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+
+        toast.error('Pipeline Timeout', {
+            description: `Pipeline did not produce output files within ${maxWait / 60000} minutes.`,
+            duration: 5000
+        });
+        return false;
+    }
+
+    async function updatePipeline() {
+        if (isPreparing) return; // Prevent multiple clicks
+
+        try {
+            isPreparing = true;
+            output_files.isReady = false; // Reset state
+            output_files.updateFile = null;
+            output_files.jsonFile = null;
+            output_files.allFiles = [];
+
+            // 1. Upload DEB files to correct location
+            toast.info('Step 1/3: Uploading DEB files...');
+            const uploadSuccess = await upload_debs();
+            if (!uploadSuccess) {
+                toast.error('Upload failed, canceling pipeline');
+                return;
+            }
+
+            // 2. Run the update pipeline (background process)
+            toast.info('Step 2/3: Starting build pipeline...');
+            const pipelineSuccess = await run_update_pipeline();
+            if (!pipelineSuccess) {
+                toast.error('Pipeline start failed, canceling');
+                return;
+            }
+    
+            // 3. Wait for pipeline to complete and prepare download links
+            toast.info('Step 3/3: Waiting for build to complete...');
+            
+            // Check for files immediately in case they already exist
+            console.log('Checking immediately for existing output files...');
+            try {
+                const immediateSuccess = await prepareDownload();
+                if (immediateSuccess) {
+                    toast.success('Files already available! 🎉', {
+                        description: 'Update package is ready for download.',
+                        duration: 3000,
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.log('Initial file check failed, will start polling:', error instanceof Error ? error.message : String(error));
+            }
+            
+            // Start polling for files
+            const prepareSuccess = await checkForFiles();
+            if (!prepareSuccess) {
+                toast.error('Failed to find output files');
+                return;
+            }
+
+            toast.success('Pipeline Complete! 🎉', {
+                description: 'Update package is ready for download.',
+                duration: 3000,
+            });
+    
+        } finally {
+            isPreparing = false;
+        }
+    }
+
 </script>
 
-<main>
-    <div class="mt-6 items-center flex justify-center">
-        <!-- Disable button if no files are selected -->       
-        <button class="px-4 py-3 rounded-md font-base text-lg sm:text-xl text-light-background {$debFiles.length === 0 ? 'border border-light-text bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-aaon-blue-light text-white'} rounded-md transition-colors duration-200">
-            Generate Update Package
-        </button>
-    </div>
+<style>
+    .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #2563eb;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
 
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+</style>
+
+<main>
+    <div class="mt-6 flex flex-col items-center justify-center space-y-4">
+        <!-- Generate Package Button -->
+        <button 
+            class="px-4 py-3 rounded-md font-base text-lg sm:text-xl transition-colors duration-200
+            {$debFiles.length === 0 ? 'border border-light-text bg-input-background cursor-not-allowed text-light-text' : 'bg-aaon-blue hover:bg-gray-400 hover:cursor-pointer text-white'}"        
+            disabled={!canGenerate || isPreparing}
+            onclick={updatePipeline}        
+        >
+            {#if isPreparing}
+                <span class="spinner mr-2"></span>
+                <span>Building Update Package...</span>
+            {:else}
+                <span>Generate Update Package</span>
+            {/if}
+        </button>
+
+        <!-- Download Section - Only show when files are ready -->
+        {#if output_files.isReady}
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg border max-w-md w-full">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Download Files</h3>
+                
+                <div class="space-y-2 mb-4">
+                    {#if output_files.updateFile}
+                        <div class="flex items-center justify-between p-2 bg-white rounded border">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm">{output_files.updateFile.name}</div>
+                                <div class="text-xs text-gray-500">Update Package</div>
+                            </div>
+                            <button 
+                                class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm transition-colors duration-200"
+                                onclick={() => downloadFile(output_files.updateFile!.path, output_files.updateFile!.name)}
+                            >
+                                Download
+                            </button>
+                        </div>
+                    {/if}
+                    
+                    {#if output_files.jsonFile}
+                        <div class="flex items-center justify-between p-2 bg-white rounded border">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm">{output_files.jsonFile.name}</div>
+                                <div class="text-xs text-gray-500">Manifest JSON</div>
+                            </div>
+                            <button 
+                                class="file-download-button"
+                                onclick={() => downloadFile(output_files.jsonFile!.path, output_files.jsonFile!.name)}
+                            >
+                                Download
+                            </button>
+                        </div>
+                    {/if}
+                </div>
+
+                {#if output_files.updateFile && output_files.jsonFile}
+                    <button 
+                        class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors duration-200"
+                        onclick={downloadAllFiles}
+                    >
+                        Download All Files
+                    </button>
+                {/if}
+
+                <!-- Show all files found for debugging -->
+                {#if output_files.allFiles.length > 0}
+                    <details class="mt-3">
+                        <summary class="text-sm text-gray-600 cursor-pointer">All output files ({output_files.allFiles.length})</summary>
+                        <div class="mt-2 space-y-1">
+                            {#each output_files.allFiles as file}
+                                <div class="text-xs text-gray-500 font-mono">{file}</div>
+                            {/each}
+                        </div>
+                    </details>
+                {/if}
+            </div>
+        {/if}
+    </div>
 </main>

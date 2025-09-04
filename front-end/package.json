@@ -35,5 +35,8 @@
 		"tw-animate-css": "^1.3.7",
 		"typescript": "^5.0.0",
 		"vite": "^7.0.4"
+	},
+	"dependencies": {
+		"fflate": "^0.8.2"
 	}
 }
