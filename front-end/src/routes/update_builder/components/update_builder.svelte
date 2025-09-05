@@ -44,10 +44,61 @@
     function getUploadPrompt() {
         if (isProcessing) return "Processing files...";
         if ($debFiles.length > 0) return `${$debFiles.length} files selected`;
-        return "Click or drop .deb files, folders, or ZIP archives here";
+        return "Click to browse or drop files, folders, or ZIP archives here";
     }
 
     // --- File Input Handlers (Click & Drop) ---
+    function handleUploadClick() {
+        // Modern browsers don't support both file and directory selection in the same input
+        // So we need to try to detect folder support first
+        
+        // Try directory selection first - this is more reliable across browsers
+        try {
+            const directoryInput = document.createElement('input');
+            directoryInput.type = 'file';
+            directoryInput.multiple = true;
+            directoryInput.accept = '.deb,.zip';
+            directoryInput.setAttribute('webkitdirectory', '');
+            directoryInput.setAttribute('directory', ''); // Firefox
+            directoryInput.setAttribute('mozdirectory', ''); // Old Firefox
+            
+            // Listen for folder selection
+            directoryInput.addEventListener('change', (event) => {
+                const target = event.target as HTMLInputElement;
+                if (target.files && target.files.length > 0) {
+                    processFileList(target.files);
+                } else {
+                    // If no files selected with directory input, fall back to file input
+                    showFileUploadDialog();
+                }
+            });
+            
+            // Trigger the directory dialog
+            directoryInput.click();
+        } catch (err) {
+            // Fallback to regular file input if directory selection fails
+            showFileUploadDialog();
+        }
+    }
+    
+    function showFileUploadDialog() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.accept = '.deb,.zip';
+        
+        // Listen for file selection
+        fileInput.addEventListener('change', (event) => {
+            const target = event.target as HTMLInputElement;
+            if (target.files) {
+                processFileList(target.files);
+            }
+        });
+        
+        // Trigger the file dialog
+        fileInput.click();
+    }
+    
     function handleFileSelect(event: Event) {
         const target = event.target as HTMLInputElement;
         if (target.files) {
@@ -183,21 +234,11 @@
             Upload your .deb files
         </label>
         
-        <!-- Hidden file inputs for different upload methods -->
+        <!-- Hidden file input that handles all upload types -->
         <input
             type="file"
             id="deb-upload"
             multiple
-            accept=".deb,.zip"
-            onchange={handleFileSelect}
-            class="hidden"
-        />
-        
-        <input
-            type="file"
-            id="folder-upload"
-            multiple
-            webkitdirectory
             accept=".deb,.zip"
             onchange={handleFileSelect}
             class="hidden"
@@ -208,57 +249,14 @@
             ondragover={(e) => { e.preventDefault(); isDragOver = true; }}
             ondragleave={(e) => { e.preventDefault(); isDragOver = false; }}
             ondrop={handleDrop}
-            onkeydown={(e) => { if(e.key === 'Enter' || e.key === ' ') document.getElementById('deb-upload')?.click(); }}
+            onkeydown={(e) => { if(e.key === 'Enter' || e.key === ' ') handleUploadClick(); }}
             role="button"
             tabindex="0"
             aria-label="Drop zone for .deb/.zip file upload"
             class="flex flex-col justify-center sm:h-42 border-2 border-dashed rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aaon-blue focus:border-aaon-blue {isDragOver ? 'border-aaon-blue bg-blue-50' : 'border-input-border bg-input-background'}"
         >
             <button
-                onclick={(e) => {
-                    // Create a temporary menu for selecting upload method
-                    const menu = document.createElement('div');
-                    menu.className = 'absolute bg-white border rounded shadow-lg z-50 p-2';
-                    menu.style.left = `${e.clientX}px`;
-                    menu.style.top = `${e.clientY}px`;
-                    
-                    // Create file option
-                    const fileOption = document.createElement('div');
-                    fileOption.innerText = 'Upload Files';
-                    fileOption.className = 'p-2 hover:bg-blue-100 cursor-pointer';
-                    fileOption.onclick = () => {
-                        document.getElementById('deb-upload')?.click();
-                        document.body.removeChild(menu);
-                    };
-                    
-                    // Create folder option
-                    const folderOption = document.createElement('div');
-                    folderOption.innerText = 'Upload Folder';
-                    folderOption.className = 'p-2 hover:bg-blue-100 cursor-pointer';
-                    folderOption.onclick = () => {
-                        document.getElementById('folder-upload')?.click();
-                        document.body.removeChild(menu);
-                    };
-                    
-                    // Add options to menu
-                    menu.appendChild(fileOption);
-                    menu.appendChild(folderOption);
-                    
-                    // Add menu to body
-                    document.body.appendChild(menu);
-                    
-                    // Remove menu when clicking outside
-                    setTimeout(() => {
-                        document.addEventListener('click', function handler(e) {
-                            if (!menu.contains(e.target as Node)) {
-                                if (document.body.contains(menu)) {
-                                    document.body.removeChild(menu);
-                                }
-                                document.removeEventListener('click', handler);
-                            }
-                        });
-                    }, 0);
-                }}
+                onclick={() => handleUploadClick()}
                 class="w-full h-full flex flex-col items-center justify-center text-gray-700 cursor-pointer"
             >
                 <img
