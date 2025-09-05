@@ -1,184 +1,175 @@
 <script lang="ts">
+    import { debFiles } from '$lib/stores';
+    import { toast } from 'svelte-sonner';
     import Upload from '$lib/assets/upload.svg';
     import Uploaded from '$lib/assets/uploaded.svg';
-    import { toast } from 'svelte-sonner';
-    import * as Dialog from "$lib/components/ui/dialog/index.js";
+    import JSZip from 'jszip';
 
-    // Store multiple files
-    import { debFiles } from '$lib/stores';
+    import {
+        Dialog,
+        DialogTrigger,
+        DialogContent,
+        DialogHeader,
+        DialogTitle,
+        DialogDescription,
+        DialogFooter,
+        DialogClose
+    } from '$lib/components/ui/dialog';
 
-    let fileInput: HTMLInputElement;
-    let isDragging = $state(false);
-    let dropZone: HTMLDivElement;
+    // --- Component State ---
+    let isDragOver = $state(false);
+    let isProcessing = $state(false);
+    let showList = $state(false);
+    let dialogOpen = $state(false);
 
-    function isValidFile(file: File) {
-        const validExtensions = ['.deb', '.zip'];
-        return validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    // Format file size function
+    function formatFileSize(size: number): string {
+        if (size === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(size) / Math.log(1024));
+        return `${(size / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+    }
+    
+    // Calculate total size
+    function getTotalSize(): number {
+        return $debFiles.reduce((total, file) => total + file.size, 0);
+    }
+    
+    // Get formatted total size
+    function getFormattedTotalSize(): string {
+        return formatFileSize(getTotalSize());
     }
 
-    function handleFileChange(event: Event) {
-        const input = event.target as HTMLInputElement;
-        if (input.files && input.files.length > 0) {
-            const validFiles = Array.from(input.files).filter(isValidFile);
+    // Upload prompt text
+    function getUploadPrompt() {
+        if (isProcessing) return "Processing files...";
+        if ($debFiles.length > 0) return `${$debFiles.length} files selected`;
+        return "Click or drop .deb files, folders, or ZIP archives here";
+    }
 
-            if (validFiles.length > 0) {
-                debFiles.set(validFiles);
-                
-                toast.success('Files Uploaded', {
-                    description: `${validFiles.length} valid file(s) uploaded.`,
-                    duration: 1500,
-                });
-            } else {
-                showFileTypeError();
-                debFiles.set([]);
-            }
-        } else {
-            debFiles.set([]);
+    // --- File Input Handlers (Click & Drop) ---
+    function handleFileSelect(event: Event) {
+        const target = event.target as HTMLInputElement;
+        if (target.files) {
+            processFileList(target.files);
+            // Reset the input so the same file/folder can be selected again
+            target.value = '';
         }
-    }
-
-    function handleFileFromDrop(file: File) {
-        if (isValidFile(file)) {
-            debFiles.update(files => [...files, file]);
-            toast.success('File Uploaded', {
-                description: `${file.name} uploaded.`,
-                duration: 1500,
-            });
-        } else {
-            showFileTypeError();
-        }
-    }
-
-    function showFileTypeError() {
-        toast.error('File Type Error', {
-            description: 'Please upload .deb files only.',
-            duration: 1500,
-        });
-    }
-
-    function openFileBrowser() {
-        fileInput.click();
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openFileBrowser();
-        }
-    }
-
-    // Drag-and-drop
-    function handleDragEnter(event: DragEvent) {
-        event.preventDefault();
-        event.stopPropagation();
-        isDragging = true;
-    }
-    function handleDragOver(event: DragEvent) {
-        event.preventDefault();
-        event.stopPropagation();
-        isDragging = true;
-    }
-    function handleDragLeave(event: DragEvent) {
-        event.preventDefault();
-        event.stopPropagation();
-        isDragging = false;
-    }
-
-    // Recursively collect files from dropped folders
-    async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Promise<File[]> {
-        const files: File[] = [];
-        const traverse = async (entry: any) => {
-            if (entry.isFile) {
-                await new Promise<void>(resolve => {
-                    entry.file((file: File) => {
-                        if (isValidFile(file)) files.push(file);
-                        resolve();
-                    });
-                });
-            } else if (entry.isDirectory) {
-                const reader = entry.createReader();
-                await new Promise<void>(resolve => {
-                    reader.readEntries(async (entries: any[]) => {
-                        for (const e of entries) await traverse(e);
-                        resolve();
-                    });
-                });
-            }
-        };
-        for (let i = 0; i < items.length; i++) {
-            const entry = items[i].webkitGetAsEntry?.();
-            if (entry) await traverse(entry);
-        }
-        return files;
     }
 
     async function handleDrop(event: DragEvent) {
         event.preventDefault();
-        event.stopPropagation();
-        isDragging = false;
-
-        if (event.dataTransfer && event.dataTransfer.items && event.dataTransfer.items.length > 0) {
-            const files = await getAllFilesFromDataTransferItems(event.dataTransfer.items);
-            if (files.length > 0) {
-                debFiles.update(existingFiles => [...existingFiles, ...files]);
-                toast.success('Files Uploaded', {
-                    description: `${files.length} valid file(s) added from folder(s).`,
-                    duration: 1500,
-                });
-            } else {
-                showFileTypeError();
-            }
-        } else if (event.dataTransfer && event.dataTransfer.files.length > 0) {
-            // fallback for browsers that don't support webkitGetAsEntry
-            const files = Array.from(event.dataTransfer.files);
-            const validFiles = files.filter(isValidFile);
-            if (validFiles.length > 0) {
-                debFiles.update(existingFiles => [...existingFiles, ...validFiles]);
-                toast.success('Files Uploaded', {
-                    description: `${validFiles.length} valid file(s) added.`,
-                    duration: 1500,
-                });
-            } else {
-                showFileTypeError();
-            }
+        isDragOver = false;
+        if (event.dataTransfer?.items) {
+            await processDataTransferItems(Array.from(event.dataTransfer.items));
+        } else if (event.dataTransfer?.files) {
+            await processFileList(event.dataTransfer.files);
         }
     }
 
-    function clearFiles() {
-        debFiles.set([]);
-        fileInput.value = '';
-        isDragging = false;
-        toast.info('Files Cleared', {
-            description: 'All uploaded files have been cleared.',
-            duration: 1500,
-        });
+    // --- Core Processing Logic ---
+    async function processFileList(files: FileList) {
+        isProcessing = true;
+        let processedFiles: File[] = [];
+        for (const file of Array.from(files)) {
+            if (file.name.endsWith('.zip')) {
+                processedFiles.push(...(await extractDebsFromZip(file)));
+            } else if (file.name.endsWith('.deb')) {
+                processedFiles.push(file);
+            } else {
+                toast.warning(`Skipping unsupported file: ${file.name}`);
+            }
+        }
+        addFilesToStore(processedFiles);
+        isProcessing = false;
     }
 
-    // Fixed: Use $debFiles instead of get(debFiles) to make it reactive
-    let uploaded_image = $derived($debFiles.length > 0 ? Uploaded : Upload);
-    
-    // Calculate total size and format it
-    let totalSize = $derived($debFiles.reduce((total, file) => total + file.size, 0));
-    
-    let formattedSize = $derived(
-        totalSize === 0 ? '0 B' : (() => {
-            const units = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(totalSize) / Math.log(1024));
-            return `${(totalSize / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-        })()
-    );
-    
-    let upload_prompt = $derived(
-        $debFiles.length > 0
-            ? `${$debFiles.length} file${$debFiles.length === 1 ? '' : 's'} selected, ${formattedSize} in size`
-            : isDragging
-                ? "Drop your .deb files here..."
-                : "Drag 'n' drop your .deb files or folder here, or click to browse"
-    );
+    async function processDataTransferItems(items: DataTransferItem[]) {
+        isProcessing = true;
+        let allFiles: File[] = [];
+        const treePromises = items.map(item => {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
+                return traverseFileTree(entry);
+            }
+            return Promise.resolve([]);
+        });
+        const fileArrays = await Promise.all(treePromises);
+        allFiles = fileArrays.flat();
+        
+        addFilesToStore(allFiles);
+        isProcessing = false;
+    }
 
-    // Toggle list of files
-    let showList = $state(false);
+    // --- File/Directory Traversers & ZIP Extractor ---
+    async function traverseFileTree(entry: FileSystemEntry): Promise<File[]> {
+        let files: File[] = [];
+        if (entry.isFile) {
+            const file = await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject));
+            if (file.name.endsWith('.zip')) {
+                files.push(...(await extractDebsFromZip(file)));
+            } else if (file.name.endsWith('.deb')) {
+                files.push(file);
+            }
+        } else if (entry.isDirectory) {
+            const reader = (entry as FileSystemDirectoryEntry).createReader();
+            const entries = await new Promise<FileSystemEntry[]>((resolve) => reader.readEntries(resolve));
+            const filePromises = entries.map(childEntry => traverseFileTree(childEntry));
+            files = (await Promise.all(filePromises)).flat();
+        }
+        return files;
+    }
 
+    async function extractDebsFromZip(zipFile: File): Promise<File[]> {
+        try {
+            const zip = await JSZip.loadAsync(zipFile);
+            const debFilePromises: Promise<File>[] = [];
+            zip.forEach((relativePath, zipEntry) => {
+                if (!zipEntry.dir && relativePath.endsWith('.deb')) {
+                    const promise = zipEntry.async('blob').then(blob => {
+                        const fileName = zipEntry.name.split('/').pop() || zipEntry.name;
+                        return new File([blob], fileName, { type: blob.type });
+                    });
+                    debFilePromises.push(promise);
+                }
+            });
+            const debFilesFromZip = await Promise.all(debFilePromises);
+
+            if (debFilesFromZip.length > 0) {
+                toast.info(`Extracted ${debFilesFromZip.length} .deb file(s) from ${zipFile.name}`);
+            } else {
+                toast.warning(`No .deb files found in ${zipFile.name}`);
+            }
+            return debFilesFromZip;
+        } catch (error) {
+            console.error(`Error processing zip file ${zipFile.name}:`, error);
+            toast.error(`Could not read zip file: ${zipFile.name}`);
+            return [];
+        }
+    }
+
+    // --- Store Management ---
+    function addFilesToStore(newFiles: File[]) {
+        const uniqueNewFiles = newFiles.filter(file => 
+            !$debFiles.some(stored => stored.name === file.name && stored.size === file.size)
+        );
+
+        if (uniqueNewFiles.length > 0) {
+            $debFiles = [...$debFiles, ...uniqueNewFiles].sort((a, b) => a.name.localeCompare(b.name));
+            toast.success(`${uniqueNewFiles.length} new file(s) added.`);
+        } else if (newFiles.length > 0) {
+            toast.info('All selected files are already in the list.');
+        }
+    }
+
+    function toggleFileList() {
+        showList = !showList;
+    }
+
+    function clearFiles() {
+        $debFiles = [];
+        toast.info('Files cleared.');
+    }
 </script>
 
 <main class="flex flex-col justify-center box-border p-4 sm:p-5 w-full h-full bg-card-background rounded-2xl sm:rounded-3xl shadow-lg">
@@ -191,71 +182,122 @@
         <label for="deb-upload" class="text-sm sm:text-base text-dark-text block mb-2">
             Upload your .deb files
         </label>
+        
+        <!-- Hidden file inputs for different upload methods -->
         <input
             type="file"
             id="deb-upload"
             multiple
             accept=".deb,.zip"
-            onchange={handleFileChange}
-            bind:this={fileInput}
+            onchange={handleFileSelect}
+            class="hidden"
+        />
+        
+        <input
+            type="file"
+            id="folder-upload"
+            multiple
+            webkitdirectory
+            accept=".deb,.zip"
+            onchange={handleFileSelect}
             class="hidden"
         />
 
         <div
-            bind:this={dropZone}
-            ondragenter={handleDragEnter}
-            ondragover={handleDragOver}
-            ondragleave={handleDragLeave}
+            ondragenter={(e) => { e.preventDefault(); isDragOver = true; }}
+            ondragover={(e) => { e.preventDefault(); isDragOver = true; }}
+            ondragleave={(e) => { e.preventDefault(); isDragOver = false; }}
             ondrop={handleDrop}
-            onkeydown={handleKeyDown}
+            onkeydown={(e) => { if(e.key === 'Enter' || e.key === ' ') document.getElementById('deb-upload')?.click(); }}
             role="button"
             tabindex="0"
             aria-label="Drop zone for .deb/.zip file upload"
-            class="flex flex-col justify-center sm:h-42 border-2 border-dashed rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aaon-blue focus:border-aaon-blue {isDragging ? 'border-aaon-blue bg-blue-50' : 'border-input-border bg-input-background'}"
+            class="flex flex-col justify-center sm:h-42 border-2 border-dashed rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aaon-blue focus:border-aaon-blue {isDragOver ? 'border-aaon-blue bg-blue-50' : 'border-input-border bg-input-background'}"
         >
             <button
-                onclick={openFileBrowser}
+                onclick={(e) => {
+                    // Create a temporary menu for selecting upload method
+                    const menu = document.createElement('div');
+                    menu.className = 'absolute bg-white border rounded shadow-lg z-50 p-2';
+                    menu.style.left = `${e.clientX}px`;
+                    menu.style.top = `${e.clientY}px`;
+                    
+                    // Create file option
+                    const fileOption = document.createElement('div');
+                    fileOption.innerText = 'Upload Files';
+                    fileOption.className = 'p-2 hover:bg-blue-100 cursor-pointer';
+                    fileOption.onclick = () => {
+                        document.getElementById('deb-upload')?.click();
+                        document.body.removeChild(menu);
+                    };
+                    
+                    // Create folder option
+                    const folderOption = document.createElement('div');
+                    folderOption.innerText = 'Upload Folder';
+                    folderOption.className = 'p-2 hover:bg-blue-100 cursor-pointer';
+                    folderOption.onclick = () => {
+                        document.getElementById('folder-upload')?.click();
+                        document.body.removeChild(menu);
+                    };
+                    
+                    // Add options to menu
+                    menu.appendChild(fileOption);
+                    menu.appendChild(folderOption);
+                    
+                    // Add menu to body
+                    document.body.appendChild(menu);
+                    
+                    // Remove menu when clicking outside
+                    setTimeout(() => {
+                        document.addEventListener('click', function handler(e) {
+                            if (!menu.contains(e.target as Node)) {
+                                if (document.body.contains(menu)) {
+                                    document.body.removeChild(menu);
+                                }
+                                document.removeEventListener('click', handler);
+                            }
+                        });
+                    }, 0);
+                }}
                 class="w-full h-full flex flex-col items-center justify-center text-gray-700 cursor-pointer"
             >
                 <img
-                    src={uploaded_image}
+                    src={$debFiles.length > 0 ? Uploaded : Upload}
                     alt="Upload indicator"
                     class="w-8 h-8 sm:w-10 sm:h-10 mb-2 scale-75"
                 />
-                <span class="text-sm sm:text-base text-gray-500 px-4 truncate max-w-full">{upload_prompt}</span>
+                <span class="text-sm sm:text-base text-gray-500 px-4 truncate max-w-full">{getUploadPrompt()}</span>
+                {#if $debFiles.length > 0}
+                    <span class="text-xs text-gray-500 mt-1">Total: {getFormattedTotalSize()}</span>
+                {/if}
             </button>
         </div>
 
         <div class="flex justify-between items-center mt-2">
             {#if $debFiles.length > 0}
                 <div class="mt-2 px-3 py-2 w-24 bg-aaon-blue text-white rounded-md hover:bg-aaon-blue-light">
-                    <Dialog.Root>
-                        <Dialog.Trigger
-                        class="hover:underline hover:cursor-pointer"
-                            >{showList ? "Hide files" : "Show files"}</Dialog.Trigger>
-                        <Dialog.Content>
-                            <Dialog.Header>
-                                <Dialog.Title>Uploaded Debs ({$debFiles.length} files, {formattedSize})</Dialog.Title>
-                                <Dialog.Description>
+                    <Dialog onOpenChange={(open) => dialogOpen = open}>
+                        <DialogTrigger 
+                            class="hover:underline hover:cursor-pointer"
+                        >{showList ? "Hide files" : "Show files"}</DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Uploaded Files ({$debFiles.length}, {getFormattedTotalSize()})</DialogTitle>
+                                <DialogDescription>
                                     <ul class="mt-2 text-sm text-dark-text border p-2 rounded-md max-h-60 overflow-y-auto">
                                         {#each $debFiles as f}
                                             <li class="py-1 border-b last:border-none flex justify-between">
                                                 <span>{f.name}</span>
                                                 <span class="text-gray-500 text-xs">
-                                                    {(() => {
-                                                        if (f.size === 0) return '0 B';
-                                                        const units = ['B', 'KB', 'MB', 'GB'];
-                                                        const i = Math.floor(Math.log(f.size) / Math.log(1024));
-                                                        return `${(f.size / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-                                                    })()}
+                                                    {formatFileSize(f.size)}
                                                 </span>
                                             </li>
                                         {/each}
                                     </ul>
-                                </Dialog.Description>
-                            </Dialog.Header>
-                        </Dialog.Content>
-                    </Dialog.Root>
+                                </DialogDescription>
+                            </DialogHeader>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             {:else}
                 <p class="text-xs sm:text-sm text-red-500 mt-2">
@@ -278,7 +320,7 @@
                     <button
                         onclick={clearFiles}
                         class="mt-2 w-full text-aaon-blue px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-light hover:underline hover:cursor-pointer text-white rounded-md"
->
+                    >
                         Clear
                     </button>
                 {/if}

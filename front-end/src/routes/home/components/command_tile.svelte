@@ -29,7 +29,7 @@
         <button
             class="w-120 h-80 items-center justify-center bg-card-background rounded-lg shadow-lg hover:bg-aaon-blue-light p-4 cursor-pointer"
             onclick={() => {
-                goto('/update_archives');
+                goto('/commands');
             }}
             onmouseover={handleMouseOverOrFocus}
             onfocus={handleMouseOverOrFocus}
