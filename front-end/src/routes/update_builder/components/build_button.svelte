@@ -300,9 +300,9 @@
         }
     }
 
-    async function checkForFiles(pollInterval = 10000, maxWait = 3 * 60 * 1000) {
-        // pollInterval: time between checks in ms (10s)
-        // maxWait: max wait time in ms (3 min default - reduced from 8 min)
+    async function checkForFiles(pollInterval = 20000, maxWait = 10 * 60 * 1000) {
+        // pollInterval: time between checks in ms (20s)
+        // maxWait: max wait time in ms (10 min default)
         const start = Date.now();
 
         console.log(`Starting polling for output files every ${pollInterval/1000}s, timeout after ${maxWait/60000} min`);

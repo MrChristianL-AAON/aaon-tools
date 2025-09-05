@@ -3,19 +3,22 @@
     import Box from '$lib/assets/box.svg';
     import Cloud from '$lib/assets/cloud.svg';
     import Wrench from '$lib/assets/wrench.svg';
+    import Home from '$lib/assets/home.svg';
 
     import { goto } from '$app/navigation';
+    import { page } from '$app/stores';
 
     
     let username = $state("User");
     
-    // Track the active page/section
-    let activeSection = $state("dashboard"); // Default active section
-    
-    // Function to set active section
-    function setActive(section: string) {
-        activeSection = section;
-    }
+    // Reactively determine the active section from the current URL path
+    const activeSection = $derived.by(() => {
+        const pathname = $page.url.pathname;
+        if (pathname.startsWith('/commands')) return 'commands';
+        if (pathname.startsWith('/update_builder')) return 'updates';
+        if (pathname.startsWith('/update_archives')) return 'archive';
+        return 'dashboard'; // Default to dashboard for '/' or any other route
+    });
     
     // Determine if a section is active
     function isActive(section: string) {
@@ -50,12 +53,9 @@
                 <!-- Dashboard/Home Button -->
                 <button 
                     class="{isActive('dashboard') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
-                    onclick={() => {
-                        setActive('dashboard')
-                        goto('/');
-                    }}>
+                    onclick={() => goto('/')}>
                     <div class="flex items-center gap-2 md:gap-3 lg:gap-4">
-                        <img src={Box} alt="" class="w-6 h-6" />
+                        <img src={Home} alt="" class="w-6 h-6" />
                         <span class="hidden md:inline-block truncate">Tools Dashboard</span>
                     </div>
                 </button>
@@ -63,10 +63,7 @@
                 <!-- Commands Button -->
                 <button 
                     class="{isActive('commands') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
-                    onclick={() => {
-                        setActive('commands')
-                        goto('/commands');
-                    }}>
+                    onclick={() => goto('/commands')}>
                     <div class="flex items-center gap-2 md:gap-3 lg:gap-4">
                         <img src={Box} alt="" class="w-6 h-6" />
                         <span class="hidden md:inline-block truncate">Commands Packaging</span>
@@ -76,10 +73,7 @@
                 <!-- Updater Builder Button -->
                 <button 
                     class="{isActive('updates') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
-                    onclick={() => {
-                        setActive('updates')
-                        goto('/update_builder');
-                    }}>
+                    onclick={() => goto('/update_builder')}>
                     <div class="flex items-center gap-2 md:gap-3 lg:gap-4">
                         <img src={Wrench} alt="" class="w-6 h-6" />
                         <span class="hidden md:inline-block truncate">Update Builder</span>
@@ -89,10 +83,7 @@
                 <!-- Update Archive Button -->
                 <button 
                     class="{isActive('archive') ? 'bg-aaon-blue-light font-semibold' : ''} mb-2 md:mb-3 lg:mb-4 transition-colors duration-300 rounded-lg px-2 md:px-3 lg:px-4 py-2 cursor-pointer hover:bg-aaon-blue-light hover:font-semibold"
-                    onclick={() => {
-                        setActive('archive')
-                        goto('/update_archives');
-                    }}>
+                    onclick={() => goto('/update_archives')}>
                     <div class="flex items-center gap-2 md:gap-3 lg:gap-4">
                         <img src={Cloud} alt="" class="w-6 h-6" />
                         <span class="hidden md:inline-block truncate">Update Archives</span>

@@ -1,27 +1,25 @@
 <script lang="ts">
-    import Wrench from '$lib/assets/wrench.svg';
-    import WrenchDark from '$lib/assets/wrench-dark.svg';
+    import Cloud from '$lib/assets/cloud.svg';
+    import CloudDark from '$lib/assets/cloud-dark.svg';
     import { goto } from '$app/navigation';
 
-    
-    let imgSrc = WrenchDark;
+    let imgSrc = CloudDark;
     let imgAlt = "Update Builder Icon";
 
     let titleStyle = "text-2xl font-semibold text-dark-text mt-4";
     let descStyle = "mt-2 text-center text-sm text-dark-text";
 
     function handleMouseOverOrFocus() {
-        imgSrc = Wrench;
+        imgSrc = Cloud;
         titleStyle = "text-2xl font-semibold text-card-background mt-4";
         descStyle = "mt-2 text-center text-sm text-card-background";
     }
 
     function handleMouseOutOrBlur() {
-        imgSrc = WrenchDark;
+        imgSrc = CloudDark;
         titleStyle = "text-2xl font-semibold text-dark-text mt-4";
         descStyle = "mt-2 text-center text-sm text-dark-text";
     }
-
 </script>
 
 <main>
@@ -43,11 +41,11 @@
                     alt={imgAlt}
                 />
                 <span class={titleStyle}>
-                    Update Builder
+                    Update Archives
                 </span>
                 <span class={descStyle}>
                     <p>
-                        Click here to build update packages for the Stratus unit manager.
+                        Click here to access official and developmental releases update packages for the Stratus Unit Manager.
                     </p>
                 </span>
             </div>
