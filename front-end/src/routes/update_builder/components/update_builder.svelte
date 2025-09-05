@@ -5,6 +5,8 @@
     import Uploaded from '$lib/assets/uploaded.svg';
     import JSZip from 'jszip';
 
+    import BuildDownload from './build_button.svelte';
+
     import {
         Dialog,
         DialogTrigger,
@@ -210,10 +212,14 @@
 </script>
 
 <main class="flex flex-col justify-center box-border p-4 sm:p-5 w-full h-full bg-card-background rounded-2xl sm:rounded-3xl shadow-lg">
-    <h1 class="text-xl sm:text-2xl font-bold mb-1 text-dark-text">.deb Packages</h1>
-    <p class="pt-1 sm:pt-2 text-sm sm:text-base text-light-text">
-        Upload a folder of .deb files to be packaged into the update package. The resulting update package will be automatically arranged into the correct repository format, signed, and encrypted that is ready to be placed onto a USB and applied to a Stratus unit manager device.
-    </p>
+    <div>
+        <h1 class="text-xl sm:text-2xl font-bold mb-1 text-dark-text">.deb Packages</h1>
+        <p class="pt-1 sm:pt-2 text-sm sm:text-base text-light-text">
+            Upload a folder of .deb files to be packaged into the update package. The resulting update package will be automatically arranged into the correct repository format, signed, and encrypted that is ready to be placed onto a USB and applied to a Stratus unit manager device.
+        </p>
+    </div>
+
+
 
     <div class="mt-4 sm:mt-6">
         <label for="deb-upload" class="text-sm sm:text-base text-dark-text block mb-2">
@@ -254,6 +260,7 @@
                 {#if $debFiles.length > 0}
                     <span class="text-sm text-dark-text mt-1">Total: {getFormattedTotalSize()}</span>
                 {/if}
+                
             </button>
         </div>
 

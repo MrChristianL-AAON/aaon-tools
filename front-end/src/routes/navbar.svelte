@@ -31,11 +31,16 @@
         <nav class="flex flex-col pt-8 w-full h-full">
             <!-- Logo - scaled appropriately -->
             <div class="px-2 md:px-4 lg:px-6">
-                <img 
-                    src={Logo} 
-                    alt="AAON Logo" 
-                    class="h-8 md:h-10 w-auto object-contain" 
-                />
+                <button
+                    class="cursor-pointer focus:outline-none"
+                    onclick={() => goto('/')}>
+                    <img 
+                        src={Logo} 
+                        alt="AAON Logo" 
+                        class="h-8 md:h-10 w-auto object-contain" 
+                    />
+                </button>
+
             </div>
             
             <!-- Welcome text - hidden on small screens -->
