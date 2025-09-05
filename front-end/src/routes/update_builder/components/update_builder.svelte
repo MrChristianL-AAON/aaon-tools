@@ -44,47 +44,21 @@
     function getUploadPrompt() {
         if (isProcessing) return "Processing files...";
         if ($debFiles.length > 0) return `${$debFiles.length} files selected`;
-        return "Click to browse or drop files, folders, or ZIP archives here";
+        return "Drag & drop .deb/.zip files here, or click to upload";
     }
 
     // --- File Input Handlers (Click & Drop) ---
     function handleUploadClick() {
-        // Modern browsers don't support both file and directory selection in the same input
-        // So we need to try to detect folder support first
-        
-        // Try directory selection first - this is more reliable across browsers
-        try {
-            const directoryInput = document.createElement('input');
-            directoryInput.type = 'file';
-            directoryInput.multiple = true;
-            directoryInput.accept = '.deb,.zip';
-            directoryInput.setAttribute('webkitdirectory', '');
-            directoryInput.setAttribute('directory', ''); // Firefox
-            directoryInput.setAttribute('mozdirectory', ''); // Old Firefox
-            
-            // Listen for folder selection
-            directoryInput.addEventListener('change', (event) => {
-                const target = event.target as HTMLInputElement;
-                if (target.files && target.files.length > 0) {
-                    processFileList(target.files);
-                } else {
-                    // If no files selected with directory input, fall back to file input
-                    showFileUploadDialog();
-                }
-            });
-            
-            // Trigger the directory dialog
-            directoryInput.click();
-        } catch (err) {
-            // Fallback to regular file input if directory selection fails
-            showFileUploadDialog();
-        }
+        // Instead of trying directory first, we'll always show the file dialog first
+        // as this is what users expect when trying to see and select .deb files
+        showFileUploadDialog();
     }
     
     function showFileUploadDialog() {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.multiple = true;
+        // Make sure to use a broader accept attribute to ensure files are visible
         fileInput.accept = '.deb,.zip';
         
         // Listen for file selection
@@ -97,6 +71,18 @@
         
         // Trigger the file dialog
         fileInput.click();
+    }
+    
+    function showDirectoryUploadDialog() {
+        const directoryInput = document.createElement('input');
+        directoryInput.type = 'file';
+        directoryInput.multiple = true;
+        directoryInput.setAttribute('webkitdirectory', '');
+        directoryInput.setAttribute('directory', ''); // Firefox
+        directoryInput.setAttribute('mozdirectory', ''); // Old Firefox
+        
+        // Trigger the directory dialog
+        directoryInput.click();
     }
     
     function handleFileSelect(event: Event) {
@@ -264,9 +250,9 @@
                     alt="Upload indicator"
                     class="w-8 h-8 sm:w-10 sm:h-10 mb-2 scale-75"
                 />
-                <span class="text-sm sm:text-base text-gray-500 px-4 truncate max-w-full">{getUploadPrompt()}</span>
+                <span class="text-sm sm:text-base text-text px-4 truncate max-w-full">{getUploadPrompt()}</span>
                 {#if $debFiles.length > 0}
-                    <span class="text-xs text-gray-500 mt-1">Total: {getFormattedTotalSize()}</span>
+                    <span class="text-sm text-dark-text mt-1">Total: {getFormattedTotalSize()}</span>
                 {/if}
             </button>
         </div>
@@ -286,7 +272,7 @@
                                         {#each $debFiles as f}
                                             <li class="py-1 border-b last:border-none flex justify-between">
                                                 <span>{f.name}</span>
-                                                <span class="text-gray-500 text-xs">
+                                                <span class="text-text text-xs">
                                                     {formatFileSize(f.size)}
                                                 </span>
                                             </li>
