@@ -21,37 +21,111 @@
     let isPreparing = $state(false);
     let canGenerate = $derived($debFiles.length > 0);
     
-    // Enhanced UI state variables
-    let buildStage = $state('idle'); // idle, uploading, preparing, building, packaging, signing, finishing
+        // Enhanced UI state variables
+    let buildStage = $state('idle'); // idle, clearing, uploading, preparing, building, signing, encrypting, finalizing
     let buildProgress = $state(0); // 0-100
     let uploadProgress = $state(0); // 0-100
     let buildStartTime = $state<number | null>(null);
-    let estimatedTimeRemaining = $state<string | null>(null);
+    let elapsedTimeSeconds = $state<number>(0);
+    let elapsedTimeText = $state<string>('0:00');
+    let elapsedTimeInterval = $state<number | null>(null);
     let currentBuildStep = $state<string>('');
+    let lastFactTime = $state<number | null>(null);
+    
     let buildSteps = $state<{step: string, description: string, status: 'pending' | 'active' | 'complete' | 'error'}[]>([
-        { step: 'Uploading Files', description: 'Transferring DEB packages to the build server', status: 'pending' },
-        { step: 'Preparing Build Environment', description: 'Setting up the repository structure', status: 'pending' },
-        { step: 'Building Package', description: 'Generating the update package structure', status: 'pending' },
-        { step: 'Signing Package', description: 'Cryptographically signing the update files', status: 'pending' },
-        { step: 'Finishing Up', description: 'Final verification and cleanup', status: 'pending' }
+        { step: 'Clearing Previous Files', description: 'Removing old build artifacts', status: 'pending' },
+        { step: 'Uploading DEB Files', description: 'Transferring packages to build server', status: 'pending' },
+        { step: 'Preparing Build Environment', description: 'Setting up build dependencies', status: 'pending' },
+        { step: 'Building Update Package', description: 'Processing and assembling components', status: 'pending' },
+        { step: 'Signing Update Package', description: 'Applying cryptographic signatures', status: 'pending' },
+        { step: 'Encrypting Update Package', description: 'Securing package contents with AES-256 encryption', status: 'pending' },
+        { step: 'Finalizing Build Process', description: 'Verifying package integrity and validity', status: 'pending' }
     ]);
     
     // Fun facts to display during the build
     let buildFacts = $state<string[]>([
         'The update package is cryptographically signed to ensure secure installation.',
-        'Package verification happens automatically during the update process.',
-        'Updates are compatible with all Stratus hardware configurations.',
-        'The package build process generates both .update and .json files for tracking.',
+        'Updates are specifically made to be compatible with the Stratus unit manager.',
+        'The package build process generates both .update and .json files for to ensure version tracking.',
         'Each update includes a manifest of all included packages and their versions.',
         'Updates can be applied via USB or network depending on your configuration.',
-        'The build process includes multiple verification steps for reliability.',
-        'Updates are compressed to minimize transfer time to the device.',
-        'The build system automatically resolves package dependencies.',
-        'Each generated update includes version tracking for rollback capabilities.'
+        'The build process signs the .update package to ensure validity and integrity of updates applied to the Stratus device.',
+        'Updates are safely compressed to minimize transfer time to the device.',
+        'The build process automatically resolves package dependencies.',
+        'Each generated update includes version tracking for rollback capabilities.',
+        'The encryption used during the packaging process is the industry standard for file security.',
+        'The signing process ensures only verified updates can be installed.',
+        'The update system was designed for resilience, even during power interruptions.',
+        'The update can be applied on the Stratus unit manager via the on-device UI with a single button press.'
     ]);
     
     let currentFactIndex = $state(0);
     let buildLogs = $state<{time: string, message: string, type: 'info' | 'success' | 'warning' | 'error'}[]>([]);
+    
+    // Helper function to update build progress and rotate fun facts
+    function updateBuildProgress() {
+        // Don't update anything if we're not in active build mode
+        if (buildStage === 'idle' || buildStage === 'error' || buildProgress >= 100) {
+            return;
+        }
+        
+        // Rotate fun fact every 45 seconds
+        const now = Date.now();
+        if (!lastFactTime || (now - lastFactTime) > 45000) {
+            currentFactIndex = (currentFactIndex + 1) % buildFacts.length;
+            lastFactTime = now;
+        }
+        
+        // Update elapsed time
+        if (buildStartTime) {
+            const elapsedMs = Date.now() - buildStartTime;
+            elapsedTimeSeconds = Math.floor(elapsedMs / 1000);
+            
+            const minutes = Math.floor(elapsedTimeSeconds / 60);
+            const seconds = elapsedTimeSeconds % 60;
+            elapsedTimeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+    
+    // Start/stop functions for elapsed time counter
+    function startElapsedTimeCounter() {
+        if (elapsedTimeInterval) {
+            clearInterval(elapsedTimeInterval);
+        }
+        
+        elapsedTimeInterval = setInterval(() => {
+            if (buildStartTime) {
+                const elapsedMs = Date.now() - buildStartTime;
+                elapsedTimeSeconds = Math.floor(elapsedMs / 1000);
+                
+                const minutes = Math.floor(elapsedTimeSeconds / 60);
+                const seconds = elapsedTimeSeconds % 60;
+                elapsedTimeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000) as unknown as number;
+    }
+    
+    function stopElapsedTimeCounter() {
+        if (elapsedTimeInterval) {
+            clearInterval(elapsedTimeInterval);
+            elapsedTimeInterval = null;
+        }
+    }
+    
+    // Navigation protection functions
+    function enableNavigationProtection() {
+        window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+    
+    function disableNavigationProtection() {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+    
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+        event.preventDefault();
+        event.returnValue = "Build in progress! Leaving this page will cancel the update package creation. Are you sure you want to leave?";
+        return event.returnValue;
+    }
 
     function toggleDevView() {
         if (output_files.isReady) {
@@ -107,15 +181,12 @@
 
     async function upload_debs() {
         console.log('Uploading DEB files:', $debFiles);
-        updateBuildStage('uploading', 5);
-        addBuildLog(`Starting upload of ${$debFiles.length} DEB files`);
+        setStage('uploading', 5);
 
         if (!$debFiles || $debFiles.length === 0) {
             toast.error('Cannot upload DEB files', {
-                description: 'Please upload at least one DEB file to generate an update package.',
-                duration: 1500
+                description: 'Please upload at least one DEB file to generate an update package.'
             });
-            addBuildLog('No DEB files to upload', 'error');
             return false;
         }
 
@@ -135,10 +206,10 @@
                 const batchProgress = Math.floor(((i + 1) / totalBatches) * 100);
                 console.log(`Uploading batch ${i + 1}/${totalBatches} (${batch.length} files)...`);
                 uploadProgress = batchProgress;
-                updateBuildStage('uploading', 5 + (batchProgress * 0.15)); // Maps 0-100 to 5-20% of total progress
+                // Maps upload progress (0-100) to 5-10% of total progress
+                const totalProgress = Math.min(10, 5 + (batchProgress * 0.05));
+                setStage('uploading', totalProgress);
                 
-                addBuildLog(`Uploading batch ${i + 1}/${totalBatches} (${batch.length} files)`);
-
                 const response = await fetch('/api/builder/upload_debs', {
                     method: 'POST',
                     body: formData
@@ -147,13 +218,11 @@
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error(`Upload failed for batch ${i + 1}:`, response.status, errorText);
-                    addBuildLog(`Upload failed for batch ${i + 1}: ${response.statusText}`, 'error');
                     throw new Error(`Upload failed: ${response.statusText}`);
                 }
 
                 const data = await response.json();
                 console.log(`Batch ${i + 1} response:`, data);
-                addBuildLog(`Successfully uploaded batch ${i + 1}/${totalBatches}`, 'success');
                 successCount += batch.length;
             }
 
@@ -163,7 +232,6 @@
             });
 
             uploadProgress = 100;
-            addBuildLog(`Upload complete: ${successCount} files uploaded`, 'success');
             return true;
         } catch (err) {
             console.error('Error uploading DEB files:', err);
@@ -171,68 +239,35 @@
                 description: 'An error occurred while uploading DEB files. Please try again.',
                 duration: 1500
             });
-            addBuildLog(`Upload error: ${err instanceof Error ? err.message : String(err)}`, 'error');
             return false;
         }
     }
 
     async function run_update_pipeline() {
         try {
-            updateBuildStage('preparing', 20);
-            addBuildLog('Starting update package build pipeline');
-
             // Run update pipeline
+            setStage('building', 30);
+
             const res = await fetch('/api/builder/build_update', {
                 method: 'POST'
             });
 
             if (!res.ok) {
-                addBuildLog(`Pipeline failed: ${res.statusText}`, 'error');
                 throw new Error(`Pipeline failed: ${res.statusText}`);
             }
 
             const result = await res.json();
             console.log('Pipeline result:', result);
-            addBuildLog('Build pipeline started successfully');
             
-            toast.success('Pipeline Started', {
-                description: 'Update package build started in background. Please wait...',
-                duration: 2000,
-            });
-            
-            // Move to building stage
-            updateBuildStage('building', 25);
-            
-            // Simulate progress updates for the longer building process
-            // We'll update from 25% to 75% during this phase
-            const progressUpdates = [
-                { stage: 'building', progress: 35, message: 'Preparing package structure', delay: 30000 },
-                { stage: 'building', progress: 45, message: 'Assembling package components', delay: 45000 },
-                { stage: 'building', progress: 55, message: 'Processing manifest files', delay: 60000 },
-                { stage: 'signing', progress: 65, message: 'Applying cryptographic signatures', delay: 75000 },
-                { stage: 'signing', progress: 75, message: 'Verifying package integrity', delay: 90000 },
-                { stage: 'finishing', progress: 85, message: 'Finalizing package assembly', delay: 105000 }
-            ];
-            
-            // Schedule these updates
-            progressUpdates.forEach(update => {
-                setTimeout(() => {
-                    updateBuildStage(update.stage, update.progress);
-                    addBuildLog(update.message);
-                }, update.delay);
-            });
-
             // Since the pipeline runs in background, we need to wait before starting polling
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+            await new Promise(resolve => setTimeout(resolve, 10000));
             
             return true;
         } catch (err) {
             console.error('Error running update pipeline:', err);
             toast.error('Pipeline Error', {
-                description: 'An error occurred while starting the update pipeline. Please try again.',
-                duration: 1500,
+                description: 'An error occurred while starting the update pipeline.'
             });
-            addBuildLog(`Pipeline error: ${err instanceof Error ? err.message : String(err)}`, 'error');
             return false;
         }
     }
@@ -367,135 +402,111 @@
         }
     }
     
-    // Helper functions for build UI
-    function addBuildLog(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString();
-        buildLogs = [...buildLogs, { time: timeStr, message, type }];
-        
-        // Keep the log at a reasonable size
-        if (buildLogs.length > 50) {
-            buildLogs = buildLogs.slice(-50);
+    // Helper function to determine which step is active based on stage
+    function getActiveStep() {
+        switch (buildStage) {
+            case 'clearing': return 0;
+            case 'uploading': return 1;
+            case 'preparing': return 2;
+            case 'building': return 3;
+            case 'signing': return 4;
+            case 'encrypting': return 5;
+            case 'finalizing': return 6;
+            default: return 0;
         }
     }
-    
-    function updateBuildStage(stage: string, progress: number) {
+
+    // Helper function to update the build stage and progress
+    function setStage(stage: string, progressTarget: number = -1) {
         buildStage = stage;
-        buildProgress = progress;
         
-        // Update the build steps based on the stage
-        let updatedSteps = [...buildSteps];
+        // Find the current step number
+        const currentStep = getActiveStep();
         
-        switch(stage) {
-            case 'uploading':
-                updatedSteps[0].status = 'active';
-                currentBuildStep = 'Uploading files to build server';
-                break;
-            case 'preparing':
-                updatedSteps[0].status = 'complete';
-                updatedSteps[1].status = 'active';
-                currentBuildStep = 'Preparing build environment';
-                break;
-            case 'building':
-                updatedSteps[0].status = 'complete';
-                updatedSteps[1].status = 'complete';
-                updatedSteps[2].status = 'active';
-                currentBuildStep = 'Building update package';
-                break;
-            case 'signing':
-                updatedSteps[0].status = 'complete';
-                updatedSteps[1].status = 'complete';
-                updatedSteps[2].status = 'complete';
-                updatedSteps[3].status = 'active';
-                currentBuildStep = 'Signing update package';
-                break;
-            case 'finishing':
-                updatedSteps[0].status = 'complete';
-                updatedSteps[1].status = 'complete';
-                updatedSteps[2].status = 'complete';
-                updatedSteps[3].status = 'complete';
-                updatedSteps[4].status = 'active';
-                currentBuildStep = 'Finalizing build';
-                break;
-            case 'complete':
-                updatedSteps = updatedSteps.map(step => ({...step, status: 'complete'}));
-                currentBuildStep = 'Build complete';
-                break;
-        }
-        
-        buildSteps = updatedSteps;
-        
-        // Rotate through facts every 15 seconds during the build
-        const factRotateInterval = setInterval(() => {
-            currentFactIndex = (currentFactIndex + 1) % buildFacts.length;
-        }, 15000);
-        
-        // Calculate estimated time remaining
-        if (buildStartTime && progress > 0) {
-            const elapsedMs = Date.now() - buildStartTime;
-            const estimatedTotalMs = elapsedMs / (progress / 100);
-            const remainingMs = estimatedTotalMs - elapsedMs;
-            
-            if (remainingMs > 0) {
-                const remainingMins = Math.floor(remainingMs / 60000);
-                const remainingSecs = Math.floor((remainingMs % 60000) / 1000);
-                estimatedTimeRemaining = `${remainingMins}:${remainingSecs.toString().padStart(2, '0')}`;
+        // Mark all previous steps as complete, current step as active, and reset future steps
+        buildSteps = buildSteps.map((step, index) => {
+            if (index < currentStep) {
+                return { ...step, status: 'complete' };
+            } else if (index === currentStep) {
+                return { ...step, status: 'active' };
             } else {
-                estimatedTimeRemaining = "Almost done";
+                return { ...step, status: 'pending' };
             }
-        }
+        });
         
-        // Clear interval when build is complete
-        if (stage === 'complete') {
-            clearInterval(factRotateInterval);
+        // Set the progress target (if specified)
+        if (progressTarget > 0) {
+            // Only increase progress, never go backward
+            buildProgress = Math.max(buildProgress, progressTarget);
+            // Update log
         }
     }
 
     async function checkForFiles(pollInterval = 20000, maxWait = 10 * 60 * 1000) {
-        // pollInterval: time between checks in ms (20s)
-        // maxWait: max wait time in ms (10 min default)
+        // Initial values
         const start = Date.now();
-
+        let attempts = 0;
+        const buildingProgressStart = 30;  // Start at 30%
+        const buildingProgressEnd = 70;   // End at 70% (building phase)
+        const expectedBuildTimeMs = 7 * 60 * 1000; // 7 minutes for build phase
+        
         console.log(`Starting polling for output files every ${pollInterval/1000}s, timeout after ${maxWait/60000} min`);
-        addBuildLog(`Checking for output files (polling every ${pollInterval/1000}s)`);
-
-        // Try immediately first
+        
+        // First, check immediately in case files are already ready
         try {
             const success = await prepareDownload();
             if (success) {
                 console.log("Files found immediately!");
-                addBuildLog("Files found immediately!", 'success');
-                updateBuildStage('complete', 100);
+                
+                // Move through final stages quickly
+                setStage('signing', 80);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                setStage('encrypting', 90);
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                setStage('finalizing', 100);
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 return true;
             }
         } catch (error) {
             console.log("First check failed:", error instanceof Error ? error.message : String(error));
-            addBuildLog("First check for files - still building");
             // Continue to polling loop
         }
 
-        let pollCount = 0;
+        // Polling loop - this is the main building phase (30% to 70%)
         while (Date.now() - start < maxWait) {
-            pollCount++;
+            attempts++;
             try {
                 console.log(`Polling for files at ${new Date().toLocaleTimeString()}...`);
                 
-                // Update the progress based on time elapsed
+                // Calculate progress based on elapsed time
                 const elapsedMs = Date.now() - start;
-                const expectedBuildTimeMs = 7 * 60 * 1000; // 7 minutes (avg of 6-8 minutes)
-                const timeBasedProgress = Math.min(95, 85 + ((elapsedMs / expectedBuildTimeMs) * 15));
                 
-                if (pollCount % 3 === 0) { // Don't add too many log entries
-                    addBuildLog(`Checking for build completion (${Math.round((elapsedMs/60000) * 10) / 10} minutes elapsed)`);
+                // Gradually increase the progress - weighted toward end of building phase
+                // Use a non-linear formula to make progress seem more natural
+                const progressRatio = Math.min(1, elapsedMs / expectedBuildTimeMs);
+                const weightedProgress = buildingProgressStart + 
+                    (buildingProgressEnd - buildingProgressStart) * progressRatio;
+                
+                // Only update progress if it's higher than current (never go backward)
+                if (weightedProgress > buildProgress) {
+                    setStage('building', Math.min(buildingProgressEnd, Math.floor(weightedProgress)));
                 }
-                
-                updateBuildStage('finishing', timeBasedProgress);
                 
                 const success = await prepareDownload();
                 if (success) {
                     console.log("Files found during polling!");
-                    addBuildLog("Build complete! Output files found.", 'success');
-                    updateBuildStage('complete', 100);
+                    
+                    // When we find files, move through the final stages
+                    setStage('signing', 80);
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    setStage('encrypting', 90);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    setStage('finalizing', 100);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                     
                     // Try to use desktop notifications if available
                     try {
@@ -518,15 +529,12 @@
                 // still running; continue polling
             }
 
-            console.log(`No files yet, retrying in ${pollInterval / 1000} seconds...`);
             await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
 
         toast.error('Pipeline Timeout', {
-            description: `Pipeline did not produce output files within ${maxWait / 60000} minutes.`,
-            duration: 5000
+            description: `Build process did not complete within ${maxWait / 60000} minutes.`
         });
-        addBuildLog(`Build timed out after ${maxWait/60000} minutes`, 'error');
         return false;
     }
 
@@ -534,16 +542,22 @@
         if (isPreparing) return; // Prevent multiple clicks
 
         try {
-            // Initialize build UI
+            // Initialize build state
             isPreparing = true;
             buildStartTime = Date.now();
             buildProgress = 0;
             uploadProgress = 0;
-            currentBuildStep = 'Starting build process';
-            estimatedTimeRemaining = null;
+            elapsedTimeSeconds = 0;
+            startElapsedTimeCounter();
+            enableNavigationProtection();
+            
+            // Reset UI state
             buildLogs = [];
-            buildSteps = buildSteps.map(step => ({...step, status: 'pending'}));
             currentFactIndex = 0;
+            lastFactTime = null;
+            
+            // Start a timer for progress and fact rotation
+            const progressInterval = setInterval(updateBuildProgress, 1000);
             
             // Reset output files state
             output_files.isReady = false;
@@ -552,74 +566,87 @@
             output_files.allFiles = [];
 
             // Add initial log
-            addBuildLog('Starting update package build process', 'info');
 
             // 0. Clear previous DEB files
-            updateBuildStage('uploading', 0);
-            toast.info('Step 1/4: Clearing previous files...');
-            addBuildLog('Clearing previous build files');
+            setStage('clearing', 1);
             const clearSuccess = await clearPreviousDebs();
             if (!clearSuccess) {
                 // Stop if clearing fails, as it might indicate a server problem
-                toast.error('Could not clear previous files. Aborting pipeline.');
-                addBuildLog('Failed to clear previous files', 'error');
+                toast.error('Could not clear previous files');
+                setStage('error');
+                stopElapsedTimeCounter();
+                clearInterval(progressInterval);
                 return;
             }
 
             // 1. Upload DEB files to correct location
-            toast.info('Step 2/4: Uploading DEB files...');
+            setStage('uploading', 5);
             const uploadSuccess = await upload_debs();
             if (!uploadSuccess) {
-                toast.error('Upload failed, canceling pipeline');
+                toast.error('Upload failed');
+                setStage('error');
+                stopElapsedTimeCounter();
+                clearInterval(progressInterval);
                 return;
             }
 
-            // 2. Run the update pipeline (background process)
-            toast.info('Step 3/4: Starting build pipeline...');
+            // 2. Prepare environment
+            setStage('preparing', 10);
+            
+            // 3. Run the update pipeline (background process)
             const pipelineSuccess = await run_update_pipeline();
             if (!pipelineSuccess) {
-                toast.error('Pipeline start failed, canceling');
-                updateBuildStage('idle', 0);
+                toast.error('Pipeline start failed');
+                setStage('error');
+                stopElapsedTimeCounter();
+                clearInterval(progressInterval);
                 return;
             }
     
-            // 3. Wait for pipeline to complete and prepare download links
-            toast.info('Step 4/4: Waiting for build to complete...');
-            
+            // 4. Wait for pipeline to complete and prepare download links
             // Check for files immediately in case they already exist
-            console.log('Checking immediately for existing output files...');
-            addBuildLog('Checking for existing output files');
             try {
                 const immediateSuccess = await prepareDownload();
                 if (immediateSuccess) {
                     toast.success('Files already available! 🎉', {
-                        description: 'Update package is ready for download.',
-                        duration: 3000,
+                        description: 'Update package is ready for download.'
                     });
-                    updateBuildStage('complete', 100);
-                    addBuildLog('Build complete! Files ready for download', 'success');
+                    setStage('finalizing', 100);
+                    stopElapsedTimeCounter();
+                    clearInterval(progressInterval);
                     return;
                 }
             } catch (error) {
-                console.log('Initial file check failed, will start polling:', error instanceof Error ? error.message : String(error));
-                addBuildLog('Build in progress, waiting for completion');
+                console.log('Initial file check failed, starting polling:', error instanceof Error ? error.message : String(error));
+                // Continue with polling
             }
             
-            // Start polling for files
+            // Start polling for files - long building process happens here
             const prepareSuccess = await checkForFiles();
+            
             if (!prepareSuccess) {
                 toast.error('Failed to find output files');
-                addBuildLog('Build failed - no output files found', 'error');
+                stopElapsedTimeCounter();
+                clearInterval(progressInterval);
                 return;
             }
 
             toast.success('Pipeline Complete! 🎉', {
                 description: 'Update package is ready for download.',
-                duration: 3000,
             });
+            
+            stopElapsedTimeCounter();
+            clearInterval(progressInterval);
+            disableNavigationProtection();
     
+        } catch (error) {
+            console.error('Error in update pipeline:', error);
+            setStage('error');
+            stopElapsedTimeCounter();
+            disableNavigationProtection();
         } finally {
             isPreparing = false;
+            disableNavigationProtection();
         }
     }
 
@@ -660,14 +687,6 @@
     .bg-aaon-blue {
         transition: width 0.5s ease-out;
     }
-    
-    details[open] summary ~ * {
-        animation: fadeIn 0.3s ease-out;
-    }
-    
-    .build-step {
-        animation: slideIn 0.3s ease-out;
-    }
 
 </style>
 
@@ -700,13 +719,11 @@
                             <h3 class="text-lg font-semibold text-gray-800">Building Update Package</h3>
                             <div class="flex items-center">
                                 <span class="spinner mr-2"></span>
-                                <span class="text-sm text-gray-600">
-                                    {#if estimatedTimeRemaining}
-                                        Est. remaining: {estimatedTimeRemaining}
-                                    {:else}
-                                        Processing...
-                                    {/if}
-                                </span>
+                                <div class="flex items-center space-x-4">
+                                    <span class="text-sm text-gray-600">
+                                        Elapsed: {elapsedTimeText}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         
@@ -760,34 +777,17 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                 </svg>
-                                <span class="text-sm text-blue-800">Did you know?</span>
+                                <span class="text-sm text-aaon-blue font-semibold">Did you know?</span>
                             </div>
-                            <p class="text-sm text-blue-700 mt-1">{buildFacts[currentFactIndex]}</p>
+                            <p class="text-sm text-text-aaon-blue mt-1">{buildFacts[currentFactIndex]}</p>
                         </div>
-                        
-                        <!-- Collapsible build log -->
-                        <details class="rounded-md border border-gray-200">
-                            <summary class="px-3 py-2 bg-gray-50 text-sm font-medium cursor-pointer hover:bg-gray-100">
-                                Build Log ({buildLogs.length} entries)
-                            </summary>
-                            <div class="p-2 max-h-40 overflow-y-auto font-mono text-xs">
-                                {#each buildLogs as log}
-                                    <div class="py-1 border-b border-gray-100 last:border-0 
-                                        {log.type === 'error' ? 'text-red-600' : 
-                                         log.type === 'success' ? 'text-green-600' :
-                                         log.type === 'warning' ? 'text-yellow-600' : 'text-gray-700'}">
-                                        <span class="text-gray-500">[{log.time}]</span> {log.message}
-                                    </div>
-                                {/each}
-                            </div>
-                        </details>
                     </div>
                 {/if}
             </div>
         {:else}
             <!-- Download Section - Only show when files are ready -->
             <div class="mt-6 p-4 bg-gray-50 rounded-lg border max-w-md w-full">
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Download Files</h3>
+                <h3 class="text-lg font-semibold mb-3 text-dark-text">Download Files</h3>
                 
                 <div class="space-y-2 mb-4">
                     {#if output_files.updateFile}
