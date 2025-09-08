@@ -477,29 +477,36 @@
 
     // Helper function to complete all remaining steps when files are found
     async function completeRemainingSteps() {
-        // Determine the current step and complete all remaining steps
-        const currentStepIndex = getActiveStep();
-        const remainingSteps = [
-            { stage: 'building', progress: 70, delay: 1500 },
-            { stage: 'signing', progress: 80, delay: 2000 },
-            { stage: 'encrypting', progress: 90, delay: 1500 },
-            { stage: 'finalizing', progress: 100, delay: 1000 }
-        ];
+        console.log("Completing remaining build steps");
         
-        // Filter steps that need to be completed
-        const stepsToComplete = remainingSteps.filter((step, index) => {
-            return currentStepIndex <= index + 2; // +2 because 'building' is step 3 in our buildSteps array
-        });
+        // Always show all final stages regardless of current stage
+        // This ensures we always show a complete progress visualization
         
-        // Complete each step with appropriate delay
-        for (const step of stepsToComplete) {
-            setStage(step.stage, step.progress);
-            await new Promise(resolve => setTimeout(resolve, step.delay));
-        }
+        // First mark the building step as complete at 70%
+        setStage('building', 70);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Building step completed");
         
-        // Ensure all steps are marked as complete and progress is at 100%
+        // Then the signing step at 80%
+        setStage('signing', 80);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Signing step completed");
+        
+        // Then the encrypting step at 90%
+        setStage('encrypting', 90);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Encrypting step completed");
+        
+        // Finally the finalizing step at 100%
+        setStage('finalizing', 100);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Finalizing step completed");
+        
+        // Double-check to ensure all steps are marked as complete
         buildSteps = buildSteps.map(step => ({ ...step, status: 'complete' }));
         buildProgress = 100;
+        
+        console.log("All steps completed, progress at 100%");
     }
 
     // Helper function to update the build stage and progress
@@ -528,13 +535,13 @@
         }
     }
 
-    async function checkForFiles(pollInterval = 20000, maxWait = 10 * 60 * 1000) {
+    async function checkForFiles(pollInterval = 5000, maxWait = 10 * 60 * 1000) {
         // Initial values
         const start = Date.now();
         let attempts = 0;
         const buildingProgressStart = 30;  // Start at 30%
         const buildingProgressEnd = 70;   // End at 70% (building phase)
-        const expectedBuildTimeMs = 7 * 60 * 1000; // 7 minutes for build phase
+        const expectedBuildTimeMs = 60 * 1000; // 1 minute build phase for better visual feedback
         
         console.log(`Starting polling for output files every ${pollInterval/1000}s, timeout after ${maxWait/60000} min`);
         
@@ -578,7 +585,18 @@
                     console.log("Files found during polling!");
                     
                     // Always ensure we go through all remaining steps when files are found
-                    await completeRemainingSteps();
+                    try {
+                        console.log("Starting to complete remaining steps");
+                        await completeRemainingSteps();
+                        console.log("Successfully completed all steps");
+                    } catch (stepError) {
+                        console.error("Error completing remaining steps:", stepError);
+                        
+                        // Fallback approach - manually set all progress to complete
+                        console.log("Using fallback to complete all steps");
+                        buildSteps = buildSteps.map(step => ({ ...step, status: 'complete' }));
+                        buildProgress = 100;
+                    }
                     
                     // Try to use desktop notifications if available
                     try {
@@ -680,11 +698,19 @@
             try {
                 const immediateSuccess = await prepareDownload();
                 if (immediateSuccess) {
+                    console.log("Files available immediately - completing steps");
+                    // Make sure all steps are completed and progress bar fills to 100%
+                    try {
+                        await completeRemainingSteps();
+                        console.log("Steps completed successfully");
+                    } catch (stepError) {
+                        console.error("Error completing steps:", stepError);
+                    }
+                    
                     toast.success('Files already available! 🎉', {
                         description: 'Update package is ready for download.'
                     });
-                    // Make sure all steps are completed and progress bar fills to 100%
-                    await completeRemainingSteps();
+                    
                     stopElapsedTimeCounter();
                     clearInterval(progressInterval);
                     return;
