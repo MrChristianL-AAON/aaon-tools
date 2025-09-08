@@ -475,6 +475,33 @@
         }
     }
 
+    // Helper function to complete all remaining steps when files are found
+    async function completeRemainingSteps() {
+        // Determine the current step and complete all remaining steps
+        const currentStepIndex = getActiveStep();
+        const remainingSteps = [
+            { stage: 'building', progress: 70, delay: 1500 },
+            { stage: 'signing', progress: 80, delay: 2000 },
+            { stage: 'encrypting', progress: 90, delay: 1500 },
+            { stage: 'finalizing', progress: 100, delay: 1000 }
+        ];
+        
+        // Filter steps that need to be completed
+        const stepsToComplete = remainingSteps.filter((step, index) => {
+            return currentStepIndex <= index + 2; // +2 because 'building' is step 3 in our buildSteps array
+        });
+        
+        // Complete each step with appropriate delay
+        for (const step of stepsToComplete) {
+            setStage(step.stage, step.progress);
+            await new Promise(resolve => setTimeout(resolve, step.delay));
+        }
+        
+        // Ensure all steps are marked as complete and progress is at 100%
+        buildSteps = buildSteps.map(step => ({ ...step, status: 'complete' }));
+        buildProgress = 100;
+    }
+
     // Helper function to update the build stage and progress
     function setStage(stage: string, progressTarget: number = -1) {
         buildStage = stage;
@@ -517,15 +544,8 @@
             if (success) {
                 console.log("Files found immediately!");
                 
-                // Move through final stages quickly
-                setStage('signing', 80);
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                
-                setStage('encrypting', 90);
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                setStage('finalizing', 100);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Always ensure we go through all remaining steps when files are found
+                await completeRemainingSteps();
                 return true;
             }
         } catch (error) {
@@ -557,15 +577,8 @@
                 if (success) {
                     console.log("Files found during polling!");
                     
-                    // When we find files, move through the final stages
-                    setStage('signing', 80);
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                    
-                    setStage('encrypting', 90);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    setStage('finalizing', 100);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Always ensure we go through all remaining steps when files are found
+                    await completeRemainingSteps();
                     
                     // Try to use desktop notifications if available
                     try {
@@ -670,7 +683,8 @@
                     toast.success('Files already available! 🎉', {
                         description: 'Update package is ready for download.'
                     });
-                    setStage('finalizing', 100);
+                    // Make sure all steps are completed and progress bar fills to 100%
+                    await completeRemainingSteps();
                     stopElapsedTimeCounter();
                     clearInterval(progressInterval);
                     return;
@@ -738,13 +752,26 @@
     }
     
     @keyframes fadeIn {
-        0% { opacity: 0; }
-        100% { opacity: 1; }
+        0% { opacity: 0; transform: translateY(10px); }
+        100% { opacity: 1; transform: translateY(0); }
     }
     
     /* Apply animations */
     .bg-aaon-blue {
         transition: width 0.5s ease-out;
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .download-section {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s ease;
+    }
+    
+    .download-section:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
 
 </style>
@@ -846,51 +873,62 @@
             </div>
         {:else}
             <!-- Download Section - Only show when files are ready -->
-            <div class="mt-6 p-4 bg-gray-50 rounded-lg border max-w-md w-full">
-                <h3 class="text-lg font-semibold mb-3 text-dark-text">Download Files</h3>
-                
-                <div class="space-y-2 mb-4">
-                    {#if output_files.updateFile}
-                        <div class="flex items-center justify-between p-2 bg-white rounded border">
-                            <div class="flex-1">
-                                <div class="font-medium text-sm">{output_files.updateFile.name}</div>
-                                <div class="text-xs text-gray-500">Update Package</div>
-                            </div>
-                            <button 
-                                class="px-3 py-2 bg-aaon-blue-light hover:bg-aaon-blue text-white rounded-md text-sm transition-colors duration-200"
-                                onclick={() => downloadFile(output_files.updateFile!.path, output_files.updateFile!.name)}
-                            >
-                                Download
-                            </button>
-                        </div>
-                    {/if}
+            <div class="w-full flex flex-col items-center justify-center mt-8">
+                <div class="download-section max-w-md w-full bg-white rounded-lg border border-gray-200 shadow-lg p-6 animate-fadeIn">
+                    <div class="text-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-green-500 mb-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <h3 class="text-xl font-semibold text-dark-text">Build Complete</h3>
+                        <p class="text-sm text-gray-600 mt-1">Your update package is ready for download</p>
+                    </div>
                     
-                    {#if output_files.jsonFile}
-                        <div class="flex items-center justify-between p-2 bg-white rounded border">
-                            <div class="flex-1">
-                                <div class="font-medium text-sm">{output_files.jsonFile.name}</div>
-                                <div class="text-xs text-gray-500">Package Version Tracking JSON</div>
+                    <div class="space-y-3 mb-6">
+                        {#if output_files.updateFile}
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                <div class="flex-1">
+                                    <div class="font-medium text-sm">{output_files.updateFile.name}</div>
+                                    <div class="text-xs text-gray-500">Update Package</div>
+                                </div>
+                                <button 
+                                    class="px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow"
+                                    onclick={() => downloadFile(output_files.updateFile!.path, output_files.updateFile!.name)}
+                                >
+                                    Download
+                                </button>
                             </div>
-                            <button 
-                                class="px-3 py-2 bg-aaon-blue-light hover:bg-aaon-blue text-white rounded-md text-sm transition-colors duration-200"
-                                onclick={() => downloadFile(output_files.jsonFile!.path, output_files.jsonFile!.name)}
-                            >
-                                Download
-                            </button>
-                        </div>
+                        {/if}
+                        
+                        {#if output_files.jsonFile}
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                <div class="flex-1">
+                                    <div class="font-medium text-sm">{output_files.jsonFile.name}</div>
+                                    <div class="text-xs text-gray-500">Package Version Tracking JSON</div>
+                                </div>
+                                <button 
+                                    class="px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow"
+                                    onclick={() => downloadFile(output_files.jsonFile!.path, output_files.jsonFile!.name)}
+                                >
+                                    Download
+                                </button>
+                            </div>
+                        {/if}
+                    </div>
+
+                    {#if output_files.updateFile && output_files.jsonFile}
+                        <button 
+                            class="w-full px-4 py-3 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2"
+                            onclick={downloadAllFiles}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                            Download All Files
+                        </button>
                     {/if}
                 </div>
-
-                {#if output_files.updateFile && output_files.jsonFile}
-                    <button 
-                        class="w-full px-4 py-2 bg-aaon-blue-light hover:bg-aaon-blue text-white rounded-md font-medium transition-colors duration-200"
-                        onclick={downloadAllFiles}
-                    >
-                        Download Files
-                    </button>
-                {/if}
-
             </div>
+
         {/if}
     </div>
 </main>
