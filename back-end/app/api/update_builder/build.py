@@ -27,19 +27,56 @@ def trigger_update(background_tasks: BackgroundTasks):
         return {"error": f"Script not found at {updater_path}"}
 
     def run_script():
+        build_success = False
         try:
-            result = subprocess.run(
+            # Run the build script first
+            build_result = subprocess.run(
                 ["bash", str(updater_path)],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
                 cwd=str(updater_dir),
-                timeout=120
+                timeout=300  # Increased timeout for larger builds
             )
-            print("Pipeline finished:", result.returncode)
-            print("stdout:", result.stdout)
-            print("stderr:", result.stderr)
+            print("Pipeline finished:", build_result.returncode)
+            print("stdout:", build_result.stdout)
+            print("stderr:", build_result.stderr)
+            
+            # Check if build was successful
+            if build_result.returncode == 0:
+                build_success = True
+            else:
+                print("Build failed with return code:", build_result.returncode)
+                
+            # Now run the archival script if build was successful
+            if build_success:
+                archive_path = Path("C:/Users/christian.leonard/Documents/code/IoT/Stratus/remote_update_manager/scripts/archive.py")
+                if not archive_path.exists():
+                    print(f"Archive script not found at {archive_path}")
+                    return
+                    
+                try:
+                    archive_result = subprocess.run(
+                        ["python", str(archive_path)],
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        cwd=str(archive_path.parent),
+                        timeout=60
+                    )
+                    print("Archive script finished:", archive_result.returncode)
+                    print("stdout:", archive_result.stdout)
+                    print("stderr:", archive_result.stderr)
+                    
+                    if archive_result.returncode != 0:
+                        print(f"Archive script failed with return code: {archive_result.returncode}")
+                except subprocess.TimeoutExpired:
+                    print("Archive script timed out")
+                except Exception as e:
+                    print(f"Archive script failed: {str(e)}")
+                    
         except subprocess.TimeoutExpired:
             print("Pipeline timed out")
         except Exception as e:
@@ -48,4 +85,4 @@ def trigger_update(background_tasks: BackgroundTasks):
     # Run build in the background so request returns immediately
     background_tasks.add_task(run_script)
 
-    return {"message": "Pipeline started in background"}
+    return {"message": "Pipeline started in background. Archival will run automatically upon successful build."}

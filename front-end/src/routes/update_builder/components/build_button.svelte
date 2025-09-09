@@ -186,34 +186,6 @@
         // we're just demonstrating the UI combination
     }
 
-    function toggleDevView() {
-        if (output_files.isReady) {
-            // If the view is on, turn it off by resetting the state
-            output_files.isReady = false;
-            output_files.updateFile = null;
-            output_files.jsonFile = null;
-            output_files.allFiles = [];
-        } else {
-            // If the view is off, turn it on by populating with mock data
-            output_files.isReady = true;
-            output_files.updateFile = {
-                name: 'stratus-update-package.update',
-                path: 'mock/path/stratus-update-package.update'
-            };
-            output_files.jsonFile = {
-                name: 'stratus-update-package.json',
-                path: 'mock/path/stratus-update-package.json'
-            };
-            output_files.allFiles = [
-                'mock/path/stratus-update-package.update',
-                'mock/path/stratus-update-package.json'
-            ];
-            toast.info('Dev Mode Enabled', {
-                description: 'Showing mock download section for UI editing.'
-            });
-        }
-    }
-
     async function clearPreviousDebs() {
         try {
             console.log('Clearing previous DEB files...');
@@ -459,6 +431,40 @@
             await Promise.all(downloads);
             toast.success('All files downloaded successfully');
         }
+    }
+    
+    // Function to start over - reset all state and allow building a new update
+    function startOver() {
+        // Reset all state variables
+        isPreparing = false;
+        buildStage = 'idle';
+        buildProgress = 0;
+        uploadProgress = 0;
+        buildStartTime = null;
+        elapsedTimeSeconds = 0;
+        elapsedTimeText = '0:00';
+        
+        if (elapsedTimeInterval) {
+            clearInterval(elapsedTimeInterval);
+            elapsedTimeInterval = null;
+        }
+        
+        // Reset build steps
+        buildSteps = buildSteps.map(step => ({ ...step, status: 'pending' }));
+        
+        // Reset output files
+        output_files.isReady = false;
+        output_files.updateFile = null;
+        output_files.jsonFile = null;
+        output_files.allFiles = [];
+        
+        // Show toast notification
+        toast.info('Starting Over', {
+            description: 'Ready to build a new update package.'
+        });
+        
+        // Make sure navigation protection is disabled
+        disableNavigationProtection();
     }
     
     // Helper function to determine which step is active based on stage
@@ -804,14 +810,6 @@
 
 <main>
     <div>
-        <button
-            onclick={toggleDevView}
-            class="absolute top-2 right-2 bg-gray-200 text-gray-600 text-xs font-mono px-2 py-1 rounded hover:bg-gray-300"
-            title="Toggle developer view to see download section for UI editing"
-        >
-            Toggle Dev View
-        </button>
-
         {#if !output_files.isReady}
             <!-- Combined Drop Zone and Build Interface -->
             <div class="mt-6 flex flex-col items-center justify-center space-y-4">
@@ -894,6 +892,19 @@
                             </div>
                             <p class="text-sm text-text-aaon-blue mt-1">{buildFacts[currentFactIndex]}</p>
                         </div>
+                        
+                        <!-- Build New button -->
+                        <div class="mt-4 text-center">
+                            <button 
+                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 mx-auto"
+                                onclick={startOver}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                                </svg>
+                                Build New Package
+                            </button>
+                        </div>
                     </div>
                 {/if}
             </div>
@@ -943,7 +954,7 @@
 
                     {#if output_files.updateFile && output_files.jsonFile}
                         <button 
-                            class="w-full px-4 py-3 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2"
+                            class="w-full px-4 py-3 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 mb-4"
                             onclick={downloadAllFiles}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -952,6 +963,17 @@
                             Download All Files
                         </button>
                     {/if}
+                    
+                    <!-- Start Over button for download section -->
+                    <button 
+                        class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2"
+                        onclick={startOver}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                        </svg>
+                        Build New Update Package
+                    </button>
                 </div>
             </div>
 
