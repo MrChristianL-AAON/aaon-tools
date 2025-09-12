@@ -928,7 +928,7 @@
                                     <div class="text-xs text-gray-500">Update Package</div>
                                 </div>
                                 <button 
-                                    class="px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow"
+                                    class="px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-dark hover:cursor-pointer text-white rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow"
                                     onclick={() => downloadFile(output_files.updateFile!.path, output_files.updateFile!.name)}
                                 >
                                     Download
@@ -943,7 +943,7 @@
                                     <div class="text-xs text-gray-500">Package Version Tracking JSON</div>
                                 </div>
                                 <button 
-                                    class="px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow"
+                                    class="px-3 py-2 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow hover:cursor-pointer"
                                     onclick={() => downloadFile(output_files.jsonFile!.path, output_files.jsonFile!.name)}
                                 >
                                     Download
@@ -954,7 +954,7 @@
 
                     {#if output_files.updateFile && output_files.jsonFile}
                         <button 
-                            class="w-full px-4 py-3 bg-aaon-blue hover:bg-aaon-blue-dark text-white rounded-md font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 mb-4"
+                            class="w-full px-4 py-3 bg-aaon-blue hover:bg-aaon-blue-dark hover:cursor-pointer text-white rounded-md font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 mb-4"
                             onclick={downloadAllFiles}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -966,7 +966,7 @@
                     
                     <!-- Start Over button for download section -->
                     <button 
-                        class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2"
+                        class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 hover:cursor-pointer text-gray-700 rounded-md text-sm transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2"
                         onclick={startOver}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
