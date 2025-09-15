@@ -12,7 +12,7 @@
                     Here you can view and download all previously built update packages.
                 </p>
         </div>
-        <div>
+        <div class="w-full max-w-12xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 pb-12">
             <Table />
         </div>
     </div>

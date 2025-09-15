@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from .api.commands import files, inputs, pipeline
 from .api.update_builder import build, upload_debs, result
+from .api.update_archives import pull_archive
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,6 +16,9 @@ app.include_router(pipeline.router, prefix="/api")
 app.include_router(build.router, prefix="/api")
 app.include_router(upload_debs.router, prefix="/api")
 app.include_router(result.router, prefix="/api")
+
+# update archives
+app.include_router(pull_archive.router, prefix="/api")
 
 origins = [
     "http://localhost:5173",  # SvelteKit dev server
