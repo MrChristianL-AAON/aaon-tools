@@ -13,12 +13,6 @@
         parentDir?: string;
     };
     
-    // Date range for picker
-    let dateRangeDisplay = '';
-    let defaultStartDate = new Date();
-    defaultStartDate.setMonth(defaultStartDate.getMonth() - 6); // Default to last 6 months
-    let defaultEndDate = new Date();
-    
     // Sorting options
     type SortField = 'fileName' | 'createdDate' | 'version' | 'releaseType' | 'fileSize';
     type SortDirection = 'asc' | 'desc';
@@ -228,7 +222,8 @@
     }
     
     $: availableVersions = getUniqueValues('version');
-    $: availableReleaseTypes = getUniqueValues('releaseType');
+    // Static release types instead of dynamically generated ones
+    const availableReleaseTypes = ['development', 'public'];
     $: availableParentDirs = getUniqueValues('parentDir');
     
     // Reset filters
@@ -241,9 +236,6 @@
             maxSize: '',
             parentDirs: []
         };
-        
-        // Reset date range display
-        dateRangeDisplay = '';
         
         // Reset to first page
         currentPage = 1;
@@ -298,20 +290,6 @@
         // Parent directory filter
         if (filters.parentDirs.length > 0 && file.parentDir) {
             if (!filters.parentDirs.includes(file.parentDir)) return false;
-        }
-        
-        // Size filter (min)
-        if (filters.minSize) {
-            const minSizeBytes = parseFileSize(filters.minSize);
-            const fileSizeBytes = parseFileSize(file.fileSize);
-            if (fileSizeBytes < minSizeBytes) return false;
-        }
-        
-        // Size filter (max)
-        if (filters.maxSize) {
-            const maxSizeBytes = parseFileSize(filters.maxSize);
-            const fileSizeBytes = parseFileSize(file.fileSize);
-            if (fileSizeBytes > maxSizeBytes) return false;
         }
         
         return true;
@@ -434,7 +412,8 @@
                             fileSize: item.size_human || "Unknown",
                             createdDate,
                             version: item.version || '', // Get version from API
-                            releaseType: item.release_type || 'unknown', // Get release type from API
+                            // Map release type to either development or public
+                            releaseType: item.release_type === 'public' ? 'public' : 'development',
                             parentDir: item.parent_dir || '' // Get parent directory from API
                         };
                     });
@@ -598,30 +577,59 @@
             
             <!-- Date range picker -->
             <div class="flex items-center">
+                <!-- Filters Toggle Button -->
                 <div class="relative">
                     <button 
                         on:click={() => showFilters = !showFilters}
                         class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        aria-label="Show date filter"
+                        aria-label="Toggle filters panel"
                     >
-                        <span>{dateRangeDisplay || `${defaultStartDate.toLocaleDateString()} - ${defaultEndDate.toLocaleDateString()}`}</span>
+                        <span>Filters</span>
                         <svg class="ml-2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="ml-2">
-                    <button 
-                        on:click={() => showFilters = !showFilters}
-                        class="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        aria-label="Toggle filters"
-                    >
-                        <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
                         </svg>
                     </button>
                 </div>
+                
+                <!-- Date Filter Badge - Only shown when active -->
+                {#if filters.dateRange.start || filters.dateRange.end}
+                    <div class="ml-2">
+                        <button 
+                            on:click={() => showFilters = !showFilters}
+                            class="inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            aria-label="Edit date filter"
+                        >
+                            <span>
+                                {#if filters.dateRange.start && filters.dateRange.end}
+                                    {new Date(filters.dateRange.start).toLocaleDateString()} - {new Date(filters.dateRange.end).toLocaleDateString()}
+                                {:else if filters.dateRange.start}
+                                    From {new Date(filters.dateRange.start).toLocaleDateString()}
+                                {:else}
+                                    Until {new Date(filters.dateRange.end).toLocaleDateString()}
+                                {/if}
+                            </span>
+                            <svg class="ml-2 h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                {/if}
+                
+                <!-- Type Filter Badge - Only shown when active -->
+                {#if filters.releaseTypes.length > 0}
+                    <div class="ml-2">
+                        <button 
+                            on:click={() => showFilters = !showFilters}
+                            class="inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            aria-label="Edit type filter"
+                        >
+                            <span>Types: {filters.releaseTypes.length} selected</span>
+                            <svg class="ml-2 h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                {/if}
                 
                 <div class="ml-2">
                     <button 
@@ -665,75 +673,26 @@
                         <span class="block text-sm font-medium text-gray-700">Date Range</span>
                         <div class="flex space-x-2">
                             <div>
-                                <label for="date-from" class="block text-xs text-gray-500">From</label>
+                                <label for="date-from" class="block text-xs text-gray-500">Start Date</label>
                                 <input 
                                     id="date-from"
                                     type="date"
                                     bind:value={filters.dateRange.start}
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    on:change={() => {
-                                        if (filters.dateRange.start && filters.dateRange.end) {
-                                            const startDate = new Date(filters.dateRange.start);
-                                            const endDate = new Date(filters.dateRange.end);
-                                            dateRangeDisplay = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-                                        }
-                                    }}
                                 />
                             </div>
                             <div>
-                                <label for="date-to" class="block text-xs text-gray-500">To</label>
+                                <label for="date-to" class="block text-xs text-gray-500">End Date</label>
                                 <input 
                                     id="date-to"
                                     type="date"
                                     bind:value={filters.dateRange.end}
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    on:change={() => {
-                                        if (filters.dateRange.start && filters.dateRange.end) {
-                                            const startDate = new Date(filters.dateRange.start);
-                                            const endDate = new Date(filters.dateRange.end);
-                                            dateRangeDisplay = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-                                        }
-                                    }}
                                 />
                             </div>
                         </div>
                     </div>
                     
-                    <!-- File Size -->
-                    <div class="space-y-2">
-                        <span class="block text-sm font-medium text-gray-700">File Size</span>
-                        <div class="flex space-x-2">
-                            <div>
-                                <label for="file-size-min" class="block text-xs text-gray-500">Min</label>
-                                <select 
-                                    id="file-size-min"
-                                    bind:value={filters.minSize}
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="">Any</option>
-                                    <option value="1KB">1 KB</option>
-                                    <option value="100KB">100 KB</option>
-                                    <option value="1MB">1 MB</option>
-                                    <option value="10MB">10 MB</option>
-                                    <option value="100MB">100 MB</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="file-size-max" class="block text-xs text-gray-500">Max</label>
-                                <select 
-                                    id="file-size-max"
-                                    bind:value={filters.maxSize}
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="">Any</option>
-                                    <option value="1MB">1 MB</option>
-                                    <option value="10MB">10 MB</option>
-                                    <option value="100MB">100 MB</option>
-                                    <option value="1GB">1 GB</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
                     
                     <!-- Release Types -->
                     <div class="space-y-2">
@@ -752,29 +711,6 @@
                                             class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                         />
                                         <label for={`type-${type}`} class="ml-2 block text-sm text-gray-900">{type}</label>
-                                    </div>
-                                {/each}
-                            {/if}
-                        </div>
-                    </div>
-                    
-                    <!-- Versions -->
-                    <div class="space-y-2">
-                        <span class="block text-sm font-medium text-gray-700">Versions</span>
-                        <div class="max-h-32 overflow-y-auto border border-gray-200 rounded-md">
-                            {#if availableVersions.length === 0}
-                                <div class="p-2 text-sm text-gray-500">No versions available</div>
-                            {:else}
-                                {#each availableVersions as version}
-                                    <div class="flex items-center p-2 hover:bg-gray-100">
-                                        <input 
-                                            type="checkbox" 
-                                            id={`version-${version}`}
-                                            checked={filters.versions.includes(version)}
-                                            on:change={() => filters.versions = toggleFilter(filters.versions, version)}
-                                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        />
-                                        <label for={`version-${version}`} class="ml-2 block text-sm text-gray-900">{version}</label>
                                     </div>
                                 {/each}
                             {/if}
