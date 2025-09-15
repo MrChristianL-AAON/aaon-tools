@@ -795,38 +795,38 @@
                     <h3 class="text-lg font-medium text-gray-900">Filter Options</h3>
                     <button 
                         on:click={resetFilters}
-                        class="text-sm text-blue-600 hover:text-blue-800"
+                        class="text-sm text-aaon-blue-light hover:text-aaon-blue"
                         aria-label="Reset all filters"
                     >
                         Reset All Filters
                     </button>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- Date Range -->
-                    <div class="space-y-2 col-span-2">
-                        <span class="block text-sm font-medium text-gray-700">Date Range</span>
-                        <div class="bg-white border border-gray-200 rounded-md p-2">
-                            <RangeCalendar 
-                                bind:value={selectedDateRange}
-                                class="w-full"
-                            />
-                        </div>
-                        {#if filters.dateRange.start || filters.dateRange.end}
-                            <div class="flex justify-end">
-                                <button 
-                                    on:click={() => handleDateRangeChange(undefined)}
-                                    class="text-xs text-blue-600 hover:text-blue-800"
-                                >
-                                    Clear Date Range
-                                </button>
+                <div class="flex flex-wrap gap-4">
+                    <div class="flex flex-wrap gap-4">
+                        <!-- Date Range -->
+                        <div class="space-y-2 min-w-[260px]">
+                            <span class="block text-sm font-medium text-gray-700">Date Range</span>
+                            <div class="bg-white border border-gray-200 rounded-md p-1 overflow-hidden max-w-[260px]">
+                                <RangeCalendar 
+                                    bind:value={selectedDateRange}
+                                    class="w-full scale-90 origin-top-left -mb-6"
+                                />
                             </div>
-                        {/if}
-                    </div>
-                    
-                    
-                    <!-- Release Types -->
-                    <div class="space-y-2">
+                            {#if filters.dateRange.start || filters.dateRange.end}
+                                <div class="flex justify-left">
+                                    <button 
+                                        on:click={() => handleDateRangeChange(undefined)}
+                                        class="text-xs text-aaon-blue-light hover:text-aaon-blue hover:underline hover:cursor-pointer"
+                                    >
+                                        Clear Date Range
+                                    </button>
+                                </div>
+                            {/if}
+                        </div>
+                        
+                        <!-- Release Types - Directly adjacent to Date Range -->
+                        <div class="space-y-2 align-self-start">
                         <span class="block text-sm font-medium text-gray-700">Release Type</span>
                         <div class="max-h-32 overflow-y-auto border border-gray-200 rounded-md">
                             {#if availableReleaseTypes.length === 0}
@@ -853,9 +853,11 @@
                         </div>
                     </div>
                     
+                    </div>
+                    
                     <!-- Parent Directories -->
                     {#if availableParentDirs.length > 0}
-                        <div class="space-y-2 md:col-span-2">
+                        <div class="space-y-2 flex-grow">
                             <span class="block text-sm font-medium text-gray-700">Parent Directory</span>
                             <div class="max-h-32 overflow-y-auto border border-gray-200 rounded-md">
                                 <div class="grid grid-cols-2 lg:grid-cols-3">
@@ -886,8 +888,8 @@
                         
                         {#if filters.dateRange.start || filters.dateRange.end}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                Date: {filters.dateRange.start ? new Date(filters.dateRange.start).toLocaleDateString() : 'Any'} - 
-                                {filters.dateRange.end ? new Date(filters.dateRange.end).toLocaleDateString() : 'Any'}
+                                Date: {filters.dateRange.start ? format(new Date(filters.dateRange.start), 'MMM d, yyyy') : 'Any'} - 
+                                {filters.dateRange.end ? format(new Date(filters.dateRange.end), 'MMM d, yyyy') : 'Any'}
                             </span>
                         {/if}
                         
@@ -927,7 +929,7 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-8 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <input 
                                 type="checkbox" 
                                 on:change={selectAll}
@@ -966,7 +968,7 @@
                         >
                             File Size <span class="ml-1">{getSortIndicator('fileSize')}</span>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-7 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
                         </th>
                     </tr>

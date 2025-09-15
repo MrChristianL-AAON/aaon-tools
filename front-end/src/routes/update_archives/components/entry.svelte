@@ -38,7 +38,7 @@
 
 <tr class="hover:bg-gray-100">
     <!-- Checkbox column -->
-    <td class="px-4 py-4 whitespace-nowrap">
+    <td class="px-8 py-4 whitespace-nowrap">
         <input 
             type="checkbox" 
             checked={isSelected}
@@ -76,7 +76,7 @@
     </td>
     
     <!-- Actions column -->
-    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+    <td class="px-8 py-4 whitespace-nowrap text-right text-sm font-medium">
         <button 
             on:click={handleDownload}
             class="text-aaon-blue-light hover:text-aaon-blue hover:underline hover:cursor-pointer"
