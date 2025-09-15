@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, afterUpdate } from 'svelte';
+    import { page } from '$app/stores';
     import Entry from "./entry.svelte";
     
     // State variables
@@ -551,10 +552,43 @@
         return pages;
     }
     
+    // Variable to track if this is the initial load
+    let initialLoad = true;
+    
+    // Reactive statement to track URL changes through the page store
+    // This will reload files when navigating back to this page
+    $: {
+        if ($page && !initialLoad) {
+            // The $page store changed - we're either navigating to this page
+            // or it's being refreshed - reload the files
+            loadFiles();
+        }
+    }
+    
     onMount(() => {
+        // Initial load when component is mounted
         loadFiles();
+        initialLoad = false;
     });
+    
+    // Define a function to handle manual refresh when needed
+    function handleRefresh() {
+        loadFiles();
+    }
+    
+    // Add a keyboard shortcut for F5 to reload data without full page reload
+    function handleKeyDown(event: KeyboardEvent) {
+        // Check if F5 was pressed (keyCode 116)
+        if (event.key === 'F5') {
+            // Prevent the default browser refresh
+            event.preventDefault();
+            // Reload the data
+            loadFiles();
+        }
+    }
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
     <!-- Table header with search and date range -->
@@ -641,16 +675,6 @@
                         Download Selected
                     </button>
                 </div>
-                
-                <div class="ml-2">
-                    <button 
-                        on:click={loadFiles}
-                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        aria-label="Refresh file list"
-                    >
-                        Refresh
-                    </button>
-                </div>
             </div>
         </div>
         
@@ -671,7 +695,7 @@
                     <!-- Date Range -->
                     <div class="space-y-2">
                         <span class="block text-sm font-medium text-gray-700">Date Range</span>
-                        <div class="flex space-x-2">
+                        <div class="flex flex-col space-x-2">
                             <div>
                                 <label for="date-from" class="block text-xs text-gray-500">Start Date</label>
                                 <input 
@@ -755,21 +779,10 @@
                             </span>
                         {/if}
                         
-                        {#if filters.versions.length > 0}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                Versions: {filters.versions.length} selected
-                            </span>
-                        {/if}
                         
                         {#if filters.releaseTypes.length > 0}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                 Types: {filters.releaseTypes.length} selected
-                            </span>
-                        {/if}
-                        
-                        {#if filters.minSize || filters.maxSize}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                Size: {filters.minSize || 'Any'} - {filters.maxSize || 'Any'}
                             </span>
                         {/if}
                         
