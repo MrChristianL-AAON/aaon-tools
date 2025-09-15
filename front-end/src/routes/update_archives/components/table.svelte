@@ -28,8 +28,8 @@
     type SortField = 'fileName' | 'createdDate' | 'version' | 'releaseType' | 'fileSize';
     type SortDirection = 'asc' | 'desc';
     
-    let sortField: SortField = 'fileName'; // Default sort by file name
-    let sortDirection: SortDirection = 'asc'; // Default ascending order
+    let sortField: SortField = 'createdDate'; // Default sort by created date
+    let sortDirection: SortDirection = 'desc'; // Default descending order (newest first)
     
     // Filter options
     type FilterState = {
@@ -180,6 +180,10 @@
         // Reset to first page after changing sort
         currentPage = 1;
         
+        // Automatically refresh the file list to get the latest data
+        // This ensures we have the most up-to-date information when sorting
+        loadFiles();
+        
         // Force a re-render by creating a new array reference
         // This ensures the reactive statement for filteredFiles runs
         files = [...files];
@@ -188,7 +192,7 @@
     // Get sort indicator symbol and classes
     function getSortIndicator(field: SortField): string {
         if (field !== sortField) return '';
-        return sortDirection === 'asc' ? '▲' : '▼';
+        return sortDirection === 'asc' ? '▲' : '▼'; // ▲ for ascending (up), ▼ for descending (down)
     }
     
     function getSortHeaderClass(field: SortField): string {
@@ -363,11 +367,13 @@
         return true;
     });
     
-    // Track changes to sort parameters to ensure reactivity
+    // Create a reactive variable that changes when sort parameters change
+    $: sortKey = `${sortField}-${sortDirection}`;
+    
+    // This ensures the UI updates when sort parameters change
     $: {
-        // This is a reactive statement that re-runs when sort parameters change
-        // It doesn't need to do anything, just track the dependencies
-        const _ = sortField + sortDirection;
+        // Force reactivity when sort parameters change
+        const _ = sortKey;
     }
     
     // Reset to first page when filter changes
@@ -939,31 +945,31 @@
                             />
                         </th>
                         <th scope="col" 
-                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            class={getSortHeaderClass('fileName')}
                             on:click={() => changeSort('fileName')}
                         >
                             Package ID <span class="ml-1">{getSortIndicator('fileName')}</span>
                         </th>
                         <th scope="col" 
-                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            class={getSortHeaderClass('createdDate')}
                             on:click={() => changeSort('createdDate')}
                         >
                             Created On <span class="ml-1">{getSortIndicator('createdDate')}</span>
                         </th>
                         <th scope="col" 
-                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            class={getSortHeaderClass('version')}
                             on:click={() => changeSort('version')}
                         >
                             Version <span class="ml-1">{getSortIndicator('version')}</span>
                         </th>
                         <th scope="col" 
-                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            class={getSortHeaderClass('releaseType')}
                             on:click={() => changeSort('releaseType')}
                         >
                             Release Type <span class="ml-1">{getSortIndicator('releaseType')}</span>
                         </th>
                         <th scope="col" 
-                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            class={getSortHeaderClass('fileSize')}
                             on:click={() => changeSort('fileSize')}
                         >
                             File Size <span class="ml-1">{getSortIndicator('fileSize')}</span>
