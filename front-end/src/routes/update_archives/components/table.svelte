@@ -2,6 +2,7 @@
     import { onMount, afterUpdate } from 'svelte';
     import { page } from '$app/stores';
     import Entry from "./entry.svelte";
+    import Filter from "../../../lib/assets/filter.svg"; 
     
     // State variables
     type FileEntry = {
@@ -183,7 +184,7 @@
     function getSortHeaderClass(field: SortField): string {
         const baseClass = "px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100";
         if (field === sortField) {
-            return `${baseClass} text-blue-700 font-bold`;
+            return `${baseClass} text-aaon-blue font-bold`;
         }
         return `${baseClass} text-gray-500`;
     }
@@ -455,10 +456,38 @@
     
     // Handle batch download of selected files
     function downloadSelected() {
-        // For now, just download them one by one
-        // This could be enhanced to create a zip file on the server
-        selectedFiles.forEach((filePath: string) => {
-            window.open(`/api/archives/download/${encodeURIComponent(filePath)}`, '_blank');
+        // Create a container for the download iframes if it doesn't exist
+        let downloadContainer = document.getElementById('download-container');
+        if (!downloadContainer) {
+            downloadContainer = document.createElement('div');
+            downloadContainer.id = 'download-container';
+            downloadContainer.style.display = 'none';
+            document.body.appendChild(downloadContainer);
+        } else {
+            // Clear existing iframes
+            downloadContainer.innerHTML = '';
+        }
+        
+        // Create a hidden iframe for each file to download
+        selectedFiles.forEach((filePath: string, index) => {
+            // Create a delay to avoid overwhelming the browser
+            setTimeout(() => {
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = `/api/archives/download/${encodeURIComponent(filePath)}`;
+                iframe.onload = () => {
+                    // Remove the iframe after a short delay to ensure the download starts
+                    setTimeout(() => {
+                        try {
+                            iframe.remove();
+                        } catch (e) {
+                            console.error('Error removing iframe:', e);
+                        }
+                    }, 5000);
+                };
+                
+                downloadContainer.appendChild(iframe);
+            }, index * 500); // 500ms delay between each download to prevent overwhelming the browser
         });
     }
     
@@ -603,34 +632,20 @@
                 </div>
                 <input 
                     type="text" 
-                    placeholder="Search Update Packages" 
+                    placeholder="Search Package IDs " 
                     bind:value={searchTerm}
-                    class="pl-10 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    class="pl-10 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white py-2 focus:ring-blue-500 focus:border-blue-500 block w-full"
                 />
             </div>
             
-            <!-- Date range picker -->
+            <!-- Action buttons -->
             <div class="flex items-center">
-                <!-- Filters Toggle Button -->
-                <div class="relative">
-                    <button 
-                        on:click={() => showFilters = !showFilters}
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        aria-label="Toggle filters panel"
-                    >
-                        <span>Filters</span>
-                        <svg class="ml-2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                </div>
-                
                 <!-- Date Filter Badge - Only shown when active -->
                 {#if filters.dateRange.start || filters.dateRange.end}
-                    <div class="ml-2">
+                    <div class="mr-2">
                         <button 
                             on:click={() => showFilters = !showFilters}
-                            class="inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            class="inline-flex items-center px-4 py-2 border border-aaon-blue-light shadow-sm text-sm font-medium rounded-md text-aaon-blue bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             aria-label="Edit date filter"
                         >
                             <span>
@@ -642,7 +657,7 @@
                                     Until {new Date(filters.dateRange.end).toLocaleDateString()}
                                 {/if}
                             </span>
-                            <svg class="ml-2 h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <svg class="ml-2 h-5 w-5 text-aaon-blue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
                             </svg>
                         </button>
@@ -651,28 +666,55 @@
                 
                 <!-- Type Filter Badge - Only shown when active -->
                 {#if filters.releaseTypes.length > 0}
-                    <div class="ml-2">
+                    <div class="mr-2">
                         <button 
                             on:click={() => showFilters = !showFilters}
-                            class="inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            class="inline-flex items-center px-4 py-2 border border-aaon-blue-light shadow-sm text-sm font-medium rounded-md text-aaon-blue bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             aria-label="Edit type filter"
                         >
-                            <span>Types: {filters.releaseTypes.length} selected</span>
-                            <svg class="ml-2 h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <span>Release Types: {filters.releaseTypes} </span>
+                            <svg class="ml-2 h-5 w-5 text-aaon-blue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
                             </svg>
                         </button>
                     </div>
                 {/if}
                 
+                <!-- Filters Toggle Button -->
+                <div class="relative">
+                    <button 
+                        on:click={() => showFilters = !showFilters}
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        aria-label="Toggle filters panel"
+                    >
+                        <span>Filters</span>
+                        <img class="ml-2 h-5 w-5 text-aaon-blue"
+                             src={Filter} alt="" />
+                    </button>
+                </div>
+                
                 <div class="ml-2">
                     <button 
                         on:click={downloadSelected}
                         disabled={selectedFiles.length === 0}
-                        class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-aaon-blue-light hover:bg-aaon-blue hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label="Download selected files"
                     >
                         Download Selected
+                    </button>
+                </div>
+                
+                <!-- Refresh Button -->
+                <div class="ml-2">
+                    <button 
+                        on:click={loadFiles}
+                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        aria-label="Refresh file list"
+                    >
+                        <svg class="mr-1.5 h-4 w-4 text-aaon-blue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                        </svg>
+                        Refresh
                     </button>
                 </div>
             </div>
@@ -734,7 +776,12 @@
                                             on:change={() => filters.releaseTypes = toggleFilter(filters.releaseTypes, type)}
                                             class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                         />
-                                        <label for={`type-${type}`} class="ml-2 block text-sm text-gray-900">{type}</label>
+                                        <label for={`type-${type}`} class="ml-2 block text-sm">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                {type === 'development' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}">
+                                                {type}
+                                            </span>
+                                        </label>
                                     </div>
                                 {/each}
                             {/if}
@@ -782,7 +829,7 @@
                         
                         {#if filters.releaseTypes.length > 0}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                Types: {filters.releaseTypes.length} selected
+                                Release Types: {filters.releaseTypes.length} selected
                             </span>
                         {/if}
                         

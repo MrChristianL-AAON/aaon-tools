@@ -52,7 +52,7 @@
     let buildFacts = $state<string[]>([
         'The update package is cryptographically signed to ensure secure installation.',
         'Updates are specifically made to be compatible with the Stratus unit manager.',
-        'The package build process generates both .update and .json files for to ensure version tracking.',
+        'The package build process generates both .update and .json files to ensure version tracking.',
         'Each update includes a manifest of all included packages and their versions.',
         'Updates can be applied via USB or network depending on your configuration.',
         'The build process signs the .update package to ensure validity and integrity of updates applied to the Stratus device.',
