@@ -3,6 +3,15 @@
     import { page } from '$app/stores';
     import Entry from "./entry.svelte";
     import Filter from "../../../lib/assets/filter.svg"; 
+    import { RangeCalendar } from "$lib/components/ui/range-calendar";
+    import { parseDate, parseDateTime, type DateValue } from '@internationalized/date';
+    import { format } from 'date-fns';
+    
+    // Define DateRange type to match what RangeCalendar expects
+    interface DateRange {
+        start: DateValue;
+        end: DateValue;
+    }
     
     // State variables
     type FileEntry = {
@@ -51,8 +60,9 @@
     let selectedFiles: string[] = [];
     let searchTerm: string = '';
     let filteredFiles: FileEntry[] = [];
+    let selectedDateRange: DateRange | undefined = undefined;
     
-    // Pagination state
+    // Pagination variables
     let currentPage = 1;
     let itemsPerPage = 10; // Show 10 items per page
     let paginatedFiles: FileEntry[] = [];
@@ -228,8 +238,64 @@
     const availableReleaseTypes = ['development', 'public'];
     $: availableParentDirs = getUniqueValues('parentDir');
     
+    // React to changes in the selectedDateRange
+    $: {
+        if (selectedDateRange !== undefined) {
+            handleDateRangeChange(selectedDateRange);
+        }
+    }
+    
+    // Handle date range change from the calendar
+    function handleDateRangeChange(dateRange: DateRange | undefined) {
+        selectedDateRange = dateRange;
+        
+        if (dateRange) {
+            // Convert start date to ISO string if available
+            if (dateRange.start) {
+                const startDate = dateRange.start.toDate('UTC');
+                filters.dateRange.start = startDate.toISOString().split('T')[0];
+            } else {
+                filters.dateRange.start = '';
+            }
+            
+            // Convert end date to ISO string if available
+            if (dateRange.end) {
+                const endDate = dateRange.end.toDate('UTC');
+                filters.dateRange.end = endDate.toISOString().split('T')[0];
+            } else {
+                filters.dateRange.end = '';
+            }
+        } else {
+            // Reset date range when cleared
+            filters.dateRange = { start: '', end: '' };
+        }
+    }
+    
+    // Convert current filter dates to DateRangeValue
+    function initializeDateRangeFromFilters() {
+        if (filters.dateRange.start || filters.dateRange.end) {
+            const start = filters.dateRange.start ? parseDate(filters.dateRange.start) : undefined;
+            const end = filters.dateRange.end ? parseDate(filters.dateRange.end) : undefined;
+            
+            if (start || end) {
+                if (start && end) {
+                    selectedDateRange = { start, end };
+                } else if (start) {
+                    selectedDateRange = { start, end: start };
+                } else if (end) {
+                    selectedDateRange = { start: end, end };
+                }
+            }
+        } else {
+            selectedDateRange = undefined;
+        }
+    }
+    
     // Reset filters
     function resetFilters() {
+        // Reset selected date range
+        selectedDateRange = undefined;
+        
         filters = {
             dateRange: { start: '', end: '' },
             versions: [],
@@ -598,6 +664,9 @@
         // Initial load when component is mounted
         loadFiles();
         initialLoad = false;
+        
+        // Initialize the date range from any existing filter values
+        initializeDateRangeFromFilters();
     });
     
     // Define a function to handle manual refresh when needed
@@ -650,11 +719,11 @@
                         >
                             <span>
                                 {#if filters.dateRange.start && filters.dateRange.end}
-                                    {new Date(filters.dateRange.start).toLocaleDateString()} - {new Date(filters.dateRange.end).toLocaleDateString()}
+                                    {format(new Date(filters.dateRange.start), 'MMM d, yyyy')} - {format(new Date(filters.dateRange.end), 'MMM d, yyyy')}
                                 {:else if filters.dateRange.start}
-                                    From {new Date(filters.dateRange.start).toLocaleDateString()}
+                                    From {format(new Date(filters.dateRange.start), 'MMM d, yyyy')}
                                 {:else}
-                                    Until {new Date(filters.dateRange.end).toLocaleDateString()}
+                                    Until {format(new Date(filters.dateRange.end), 'MMM d, yyyy')}
                                 {/if}
                             </span>
                             <svg class="ml-2 h-5 w-5 text-aaon-blue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -735,28 +804,24 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <!-- Date Range -->
-                    <div class="space-y-2">
+                    <div class="space-y-2 col-span-2">
                         <span class="block text-sm font-medium text-gray-700">Date Range</span>
-                        <div class="flex flex-col space-x-2">
-                            <div>
-                                <label for="date-from" class="block text-xs text-gray-500">Start Date</label>
-                                <input 
-                                    id="date-from"
-                                    type="date"
-                                    bind:value={filters.dateRange.start}
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label for="date-to" class="block text-xs text-gray-500">End Date</label>
-                                <input 
-                                    id="date-to"
-                                    type="date"
-                                    bind:value={filters.dateRange.end}
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                />
-                            </div>
+                        <div class="bg-white border border-gray-200 rounded-md p-2">
+                            <RangeCalendar 
+                                bind:value={selectedDateRange}
+                                class="w-full"
+                            />
                         </div>
+                        {#if filters.dateRange.start || filters.dateRange.end}
+                            <div class="flex justify-end">
+                                <button 
+                                    on:click={() => handleDateRangeChange(undefined)}
+                                    class="text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                    Clear Date Range
+                                </button>
+                            </div>
+                        {/if}
                     </div>
                     
                     
