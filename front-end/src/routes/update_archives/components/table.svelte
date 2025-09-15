@@ -1033,6 +1033,10 @@
                             on:change={() => {
                                 // Reset to first page and let the reactive statements handle recalculation
                                 currentPage = 1;
+                                
+                                // Automatically refresh the data to ensure accurate counts
+                                loadFiles();
+                                
                                 // Force Svelte to update derived values
                                 itemsPerPage = itemsPerPage;
                             }}
